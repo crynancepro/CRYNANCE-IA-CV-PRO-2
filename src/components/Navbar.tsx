@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { FileText, User, CreditCard, Home, LogOut, Menu, X, ShieldCheck, MessageCircle } from 'lucide-react';
+import { FileText, User, CreditCard, Home, LogOut, Menu, X, ShieldCheck, MessageCircle, HelpCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function Navbar() {
@@ -41,6 +41,7 @@ export default function Navbar() {
     navLinks.push({ name: 'Premium', path: '/premium', icon: CreditCard });
   }
 
+  navLinks.push({ name: 'Aide & FAQ', path: '/help', icon: HelpCircle });
   navLinks.push({ name: 'Contact', path: '/contact', icon: MessageCircle });
 
   return (

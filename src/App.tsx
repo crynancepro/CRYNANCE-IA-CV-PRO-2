@@ -13,6 +13,7 @@ import Premium from './pages/Premium';
 import Contact from './pages/Contact';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminPromo from './pages/AdminPromo';
+import Help from './pages/Help';
 
 export default function App() {
   return (
@@ -30,8 +31,9 @@ export default function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/premium" element={<Premium />} />
-        <Route path="/contact" element={<Contact />} />
-        <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/contact" element={<Contact />} />
+            <Route path="/help" element={<Help />} />
+            <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/admin/promos" element={<AdminPromo />} />
           </Routes>
         </main>

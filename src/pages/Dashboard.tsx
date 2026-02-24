@@ -4,7 +4,7 @@ import { motion } from 'motion/react';
 import { 
   FileText, Plus, Trash2, Edit, ExternalLink, 
   Loader2, User as UserIcon, CreditCard, Zap, 
-  Mail, Phone, Save, Clock 
+  Mail, Phone, Save, Clock, HelpCircle, ArrowRight 
 } from 'lucide-react';
 
 const CountdownTimer = ({ expiryDate, onExpire }: { expiryDate: string, onExpire: () => void }) => {
@@ -70,24 +70,35 @@ export default function Dashboard() {
 
   const fetchData = async (token: string) => {
     try {
-      const [cvsRes, lettersRes, paymentsRes] = await Promise.all([
+      const [cvsRes, lettersRes, paymentsRes, profileRes] = await Promise.all([
         fetch('/api/cvs', { headers: { 'Authorization': `Bearer ${token}` } }),
         fetch('/api/cover-letters', { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch('/api/payments/history', { headers: { 'Authorization': `Bearer ${token}` } })
+        fetch('/api/payments/history', { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch('/api/profile', { headers: { 'Authorization': `Bearer ${token}` } })
       ]);
 
-      if (!cvsRes.ok || !lettersRes.ok || !paymentsRes.ok) {
+      if (!cvsRes.ok || !lettersRes.ok || !paymentsRes.ok || !profileRes.ok) {
         throw new Error('Failed to fetch dashboard data');
       }
 
-      const [cvsData, lettersData, paymentsData] = await Promise.all([
+      const [cvsData, lettersData, paymentsData, profileData] = await Promise.all([
         cvsRes.json(), 
         lettersRes.json(),
-        paymentsRes.json()
+        paymentsRes.json(),
+        profileRes.json()
       ]);
+      
       setCvs(cvsData);
       setLetters(lettersData);
       setPayments(paymentsData);
+      
+      // Update local storage with fresh user data
+      localStorage.setItem('user', JSON.stringify(profileData));
+      setProfileData({
+        firstName: profileData.firstName || '',
+        lastName: profileData.lastName || '',
+        phone: profileData.phone || ''
+      });
     } catch (error) {
       console.error(error);
     } finally {
@@ -208,6 +219,14 @@ export default function Dashboard() {
                 </div>
                 <h3 className="font-bold text-slate-900">{user?.firstName} {user?.lastName}</h3>
                 <p className="text-sm text-slate-500">{user?.email}</p>
+                {(user?.modernExpiresAt && new Date(user.modernExpiresAt) > new Date()) || 
+                 (user?.classicExpiresAt && new Date(user.classicExpiresAt) > new Date()) || 
+                 (user?.creativeExpiresAt && new Date(user.creativeExpiresAt) > new Date()) || 
+                 user?.isPremium ? (
+                  <span className="mt-2 px-3 py-1 bg-emerald-100 text-emerald-700 text-[10px] font-black uppercase rounded-full">Premium Pro Actif</span>
+                ) : (
+                  <span className="mt-2 px-3 py-1 bg-slate-100 text-slate-500 text-[10px] font-black uppercase rounded-full">Compte Gratuit</span>
+                )}
               </div>
               
               <div className="pt-6 border-t border-slate-100 space-y-3">
@@ -249,6 +268,14 @@ export default function Dashboard() {
                     <ExternalLink size={14} />
                   </Link>
                 )}
+
+                <Link to="/help" className="p-4 rounded-2xl flex items-center justify-between bg-slate-50 text-slate-600 hover:bg-slate-100 transition-all border border-slate-100">
+                  <div className="flex items-center space-x-2">
+                    <HelpCircle size={18} />
+                    <span className="text-sm font-bold">Aide & FAQ</span>
+                  </div>
+                  <ArrowRight size={14} />
+                </Link>
               </div>
             </div>
           </div>
@@ -440,7 +467,13 @@ export default function Dashboard() {
                               <span className="text-slate-500 text-sm">{new Date(p.createdAt).toLocaleDateString()}</span>
                             </td>
                             <td className="py-4">
-                              <span className="bg-emerald-100 text-emerald-700 px-2 py-1 rounded-lg text-[10px] font-bold uppercase">Réussi</span>
+                              <span className={`px-2 py-1 rounded-lg text-[10px] font-bold uppercase ${
+                                p.status === 'confirmed' 
+                                  ? 'bg-emerald-100 text-emerald-700' 
+                                  : 'bg-amber-100 text-amber-700'
+                              }`}>
+                                {p.status === 'confirmed' ? 'Réussi' : 'En attente'}
+                              </span>
                             </td>
                           </tr>
                         ))}
