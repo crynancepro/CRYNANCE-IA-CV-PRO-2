@@ -6,6 +6,7 @@ import {
   Loader2, User as UserIcon, CreditCard, Zap, 
   Mail, Phone, Save, Clock, HelpCircle, ArrowRight 
 } from 'lucide-react';
+import { api } from '../services/api';
 
 const CountdownTimer = ({ expiryDate, onExpire }: { expiryDate: string, onExpire: () => void }) => {
   const [timeLeft, setTimeLeft] = useState<string>('');
@@ -71,10 +72,10 @@ export default function Dashboard() {
   const fetchData = async (token: string) => {
     try {
       const [cvsRes, lettersRes, paymentsRes, profileRes] = await Promise.all([
-        fetch('/api/cvs', { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch('/api/cover-letters', { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch('/api/payments/history', { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch('/api/profile', { headers: { 'Authorization': `Bearer ${token}` } })
+        api.cvs.list(),
+        api.letters.list(),
+        api.payments.history(),
+        api.auth.getProfile()
       ]);
 
       if (!cvsRes.ok || !lettersRes.ok || !paymentsRes.ok || !profileRes.ok) {
@@ -110,18 +111,15 @@ export default function Dashboard() {
     e.preventDefault();
     setIsSavingProfile(true);
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('/api/profile', {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(profileData)
-      });
-      const updatedUser = await response.json();
-      localStorage.setItem('user', JSON.stringify(updatedUser));
-      alert("Profil mis à jour !");
+      const users = JSON.parse(localStorage.getItem('cv_app_users') || '[]');
+      const user = JSON.parse(localStorage.getItem('user') || 'null');
+      const index = users.findIndex((u: any) => u.id === user.id);
+      if (index > -1) {
+        users[index] = { ...users[index], ...profileData };
+        localStorage.setItem('cv_app_users', JSON.stringify(users));
+        localStorage.setItem('user', JSON.stringify(users[index]));
+        alert("Profil mis à jour !");
+      }
     } catch (error) {
       console.error(error);
     } finally {
@@ -131,12 +129,8 @@ export default function Dashboard() {
 
   const deleteCv = async (id: string) => {
     if (!confirm("Supprimer ce CV ?")) return;
-    const token = localStorage.getItem('token');
     try {
-      await fetch(`/api/cvs/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      await api.cvs.delete(id);
       setCvs(cvs.filter(cv => cv.id !== id));
     } catch (error) {
       console.error(error);
@@ -145,12 +139,8 @@ export default function Dashboard() {
 
   const deleteLetter = async (id: string) => {
     if (!confirm("Supprimer cette lettre ?")) return;
-    const token = localStorage.getItem('token');
     try {
-      await fetch(`/api/cover-letters/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      await api.letters.delete(id);
       setLetters(letters.filter(l => l.id !== id));
     } catch (error) {
       console.error(error);

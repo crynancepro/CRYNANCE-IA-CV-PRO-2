@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { Download, FileDown, FileText, ChevronLeft, Loader2, Sparkles, CheckCircle2, Save, Edit3, Zap, Palette, Type, Layout, Settings2 } from 'lucide-react';
+import { api } from '../services/api';
 import ReactMarkdown from 'react-markdown';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -32,20 +33,15 @@ export default function CoverLetterPreview() {
 
   useEffect(() => {
     const fetchProfile = async () => {
-      const token = localStorage.getItem('token');
-      if (token) {
-        try {
-          const res = await fetch('/api/profile', {
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
-          if (res.ok) {
-            const data = await res.json();
-            setCurrentUser(data);
-            localStorage.setItem('user', JSON.stringify(data));
-          }
-        } catch (err) {
-          console.error(err);
+      try {
+        const res = await api.auth.getProfile();
+        if (res.ok) {
+          const data = await res.json();
+          setCurrentUser(data);
+          localStorage.setItem('user', JSON.stringify(data));
         }
+      } catch (err) {
+        console.error(err);
       }
     };
     fetchProfile();
@@ -91,17 +87,10 @@ export default function CoverLetterPreview() {
     setIsSaving(true);
     try {
       const letterId = letter.id || Math.random().toString(36).substr(2, 9);
-      const response = await fetch('/api/cover-letters', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          id: letterId,
-          data: letter.data,
-          content: editedContent
-        })
+      const response = await api.letters.save({
+        id: letterId,
+        data: letter.data,
+        content: editedContent
       });
       if (response.ok) {
         setLetter({ ...letter, id: letterId, content: editedContent });
@@ -200,20 +189,15 @@ export default function CoverLetterPreview() {
               </button>
               <button 
                 onClick={async () => {
-                  const token = localStorage.getItem('token');
-                  if (token) {
-                    const res = await fetch('/api/profile', {
-                      headers: { 'Authorization': `Bearer ${token}` }
-                    });
-                    if (res.ok) {
-                      const data = await res.json();
-                      setCurrentUser(data);
-                      localStorage.setItem('user', JSON.stringify(data));
-                      if (isSubscribed()) {
-                        setShowPayModal(false);
-                      } else {
-                        alert("Aucun abonnement actif trouvé.");
-                      }
+                  const res = await api.auth.getProfile();
+                  if (res.ok) {
+                    const data = await res.json();
+                    setCurrentUser(data);
+                    localStorage.setItem('user', JSON.stringify(data));
+                    if (isSubscribed()) {
+                      setShowPayModal(false);
+                    } else {
+                      alert("Aucun abonnement actif trouvé.");
                     }
                   }
                 }}

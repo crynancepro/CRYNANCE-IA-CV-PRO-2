@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Mail, Lock, Loader2, User as UserIcon } from 'lucide-react';
+import { api } from '../services/api';
 
 export default function Register() {
   const [isLoading, setIsLoading] = useState(false);
@@ -18,18 +19,18 @@ export default function Register() {
     e.preventDefault();
     setIsLoading(true);
     try {
-      const response = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-      });
-      const data = await response.json();
+      const response = await api.auth.register(formData);
+      const data = await response.json() as any;
       if (response.ok) {
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
-        navigate('/dashboard');
+        // Auto login after register
+        const loginRes = await api.auth.login({ email: formData.email, password: formData.password });
+        if (loginRes.ok) {
+          navigate('/dashboard');
+        } else {
+          navigate('/login');
+        }
       } else {
-        alert(data.error);
+        alert(data.message || 'Erreur lors de l\'inscription');
       }
     } catch (error) {
       console.error(error);

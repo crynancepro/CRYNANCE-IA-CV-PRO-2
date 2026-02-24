@@ -7,6 +7,7 @@ import {
   Calendar, Percent, Tag, ShieldCheck
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { api } from '../services/api';
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState<any>(null);
@@ -36,21 +37,17 @@ export default function AdminDashboard() {
   });
 
   const fetchData = async () => {
-    const token = localStorage.getItem('token');
     const user = JSON.parse(localStorage.getItem('user') || '{}');
     
-    if (!token) return navigate('/login');
     if (user.role !== 'admin') return navigate('/dashboard');
 
     try {
       const [statsRes, usersRes, paymentsRes, promosRes] = await Promise.all([
-        fetch('/api/admin/stats', { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch('/api/admin/users', { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch('/api/admin/payments', { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch('/api/admin/promo-codes', { headers: { 'Authorization': `Bearer ${token}` } })
+        api.admin.getStats(),
+        api.admin.getUsers(),
+        api.admin.getPayments(),
+        api.admin.getPromos()
       ]);
-
-      if (statsRes.status === 403) return navigate('/dashboard');
 
       const [statsData, usersData, paymentsData, promosData] = await Promise.all([
         statsRes.json(),
@@ -75,12 +72,8 @@ export default function AdminDashboard() {
   }, []);
 
   const handleConfirmPayment = async (id: number) => {
-    const token = localStorage.getItem('token');
     try {
-      const res = await fetch(`/api/admin/payments/${id}/confirm`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const res = await api.admin.confirmPayment(id);
       if (res.ok) {
         alert("Paiement confirmé !");
         fetchData();
@@ -92,16 +85,8 @@ export default function AdminDashboard() {
 
   const handleCreatePromo = async (e: React.FormEvent) => {
     e.preventDefault();
-    const token = localStorage.getItem('token');
     try {
-      const res = await fetch('/api/admin/promo-codes', {
-        method: 'POST',
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(newPromo)
-      });
+      const res = await api.admin.createPromo(newPromo);
       if (res.ok) {
         alert("Code promo créé !");
         setNewPromo({ code: '', discount: 0, type: 'fixed', startDate: '', endDate: '' });
@@ -114,12 +99,8 @@ export default function AdminDashboard() {
 
   const handleDeletePromo = async (id: number) => {
     if (!confirm("Supprimer ce code promo ?")) return;
-    const token = localStorage.getItem('token');
     try {
-      const res = await fetch(`/api/admin/promo-codes/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const res = await api.admin.deletePromo(id);
       if (res.ok) {
         fetchData();
       }

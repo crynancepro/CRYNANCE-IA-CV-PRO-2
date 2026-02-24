@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { Check, Zap, CreditCard, ShieldCheck, Sparkles, Loader2, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { api } from '../services/api';
 
 export default function Premium() {
   const [promoCode, setPromoCode] = useState('');
@@ -49,8 +50,8 @@ export default function Premium() {
     setError('');
     setSuccess('');
     try {
-      const response = await fetch(`/api/promo-codes/validate/${promoCode}`);
-      const data = await response.json();
+      const response = await api.promoCodes.validate(promoCode);
+      const data = await response.json() as any;
       if (data.valid) {
         setDiscount(data.discount);
         setSuccess(`Code promo appliqué : -${data.discount} FCFA`);
@@ -73,19 +74,11 @@ export default function Premium() {
 
     setIsProcessing(true);
     try {
-      const token = localStorage.getItem('token');
       const plan = plans.find(p => p.id === planId);
-      const response = await fetch('/api/payment/request', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ type: planId, amount: plan?.price })
-      });
-      const data = await response.json();
+      const response = await api.payments.request({ type: planId, amount: plan?.price });
+      const data = await response.json() as any;
       if (data.success) {
-        alert(data.message);
+        alert("Demande de paiement envoyée ! Un administrateur validera votre accès sous peu.");
         navigate('/dashboard');
       }
     } catch (err) {

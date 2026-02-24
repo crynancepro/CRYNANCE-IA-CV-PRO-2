@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Mail, Lock, Loader2, ArrowRight, User as UserIcon } from 'lucide-react';
+import { api } from '../services/api';
 
 export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
@@ -13,22 +14,16 @@ export default function Login() {
     e.preventDefault();
     setIsLoading(true);
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
-      });
-      const data = await response.json();
+      const response = await api.auth.login({ email, password });
+      const data = await response.json() as any;
       if (response.ok) {
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
         if (data.user.role === 'admin') {
           navigate('/admin');
         } else {
           navigate('/dashboard');
         }
       } else {
-        alert(data.error);
+        alert(data.message || 'Erreur de connexion');
       }
     } catch (error) {
       console.error(error);

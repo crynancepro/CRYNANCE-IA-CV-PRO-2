@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Plus, Trash2, Tag, Percent, DollarSign, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { api } from '../services/api';
 
 interface PromoCode {
   id: number;
@@ -30,10 +31,7 @@ export default function AdminPromo() {
 
   const fetchPromos = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('/api/admin/promo-codes', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const response = await api.admin.getPromos();
       const data = await response.json();
       setPromos(data);
     } catch (err) {
@@ -47,15 +45,7 @@ export default function AdminPromo() {
     e.preventDefault();
     setIsAdding(true);
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('/api/admin/promo-codes', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(newCode)
-      });
+      const response = await api.admin.createPromo(newCode);
       if (response.ok) {
         setNewCode({ code: '', discount: 0, type: 'fixed', startDate: '', endDate: '' });
         fetchPromos();
@@ -73,11 +63,7 @@ export default function AdminPromo() {
   const handleDelete = async (id: number) => {
     if (!confirm('Supprimer ce code promo ?')) return;
     try {
-      const token = localStorage.getItem('token');
-      await fetch(`/api/admin/promo-codes/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      await api.admin.deletePromo(id);
       fetchPromos();
     } catch (err) {
       console.error(err);
