@@ -2,11 +2,21 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { CVData, CVScore } from "../types";
 
 const getApiKey = () => {
-  const key = (import.meta.env.VITE_GEMINI_API_KEY as string) || (process.env.GEMINI_API_KEY as string) || "";
+  const viteKey = import.meta.env.VITE_GEMINI_API_KEY;
+  const processKey = process.env.GEMINI_API_KEY;
+  
+  const key = (viteKey as string) || (processKey as string) || "";
+  
   if (!key) {
-    console.warn("Gemini API Key not found in environment variables.");
+    console.warn("Gemini API Key: NOT FOUND. Check Netlify environment variables (GEMINI_API_KEY or VITE_GEMINI_API_KEY).");
   } else {
-    console.log("Gemini API Key found.");
+    console.log("Gemini API Key: Found (Length: " + key.length + ")");
+    if (!key.startsWith("AIza")) {
+      console.error("Gemini API Key: Invalid format. It should start with 'AIza'. Please check your key in Netlify.");
+    }
+    if (key.length < 20) {
+      console.warn("Gemini API Key: The key seems unusually short. Please verify it.");
+    }
   }
   return key;
 };
@@ -14,15 +24,22 @@ const getApiKey = () => {
 const getAI = () => {
   const apiKey = getApiKey();
   if (!apiKey) return null;
-  return new GoogleGenAI({ apiKey });
+  try {
+    return new GoogleGenAI({ apiKey });
+  } catch (e) {
+    console.error("Error initializing GoogleGenAI:", e);
+    return null;
+  }
 };
 
 export const generateProfessionalCV = async (data: CVData): Promise<CVData> => {
   const ai = getAI();
   if (!ai) {
-    console.error("ERREUR: La clé API Gemini est manquante. Veuillez configurer GEMINI_API_KEY dans les variables d'environnement.");
-    throw new Error("Clé API manquante");
+    throw new Error("Clé API manquante ou invalide");
   }
+  
+  const modelName = "gemini-1.5-flash"; // Use stable model for production
+  
   const prompt = `Tu es un expert en recrutement international et rédacteur de CV professionnel. Ta mission est de compléter et d'optimiser ce CV pour le rendre extrêmement compétitif, attrayant et compatible avec les systèmes ATS.
 
   RÈGLES STRICTES : 
@@ -39,8 +56,9 @@ export const generateProfessionalCV = async (data: CVData): Promise<CVData> => {
   Données actuelles de l'utilisateur (à compléter et enrichir) : ${JSON.stringify(data)}`;
 
   try {
+    console.log(`Calling Gemini API with model: ${modelName}...`);
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: modelName,
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -85,26 +103,32 @@ export const generateProfessionalCV = async (data: CVData): Promise<CVData> => {
       }
     });
 
-    const generated = JSON.parse(response.text || "{}");
+    if (!response || !response.text) {
+      throw new Error("Réponse vide de l'IA");
+    }
+
+    const generated = JSON.parse(response.text);
     return { ...data, ...generated };
-  } catch (error) {
-    console.error("Gemini CV Generation Error:", error);
-    throw error;
+  } catch (error: any) {
+    console.error("Gemini CV Generation Full Error:", error);
+    // Extract more details if available
+    const details = error.response?.data?.error?.message || error.message || JSON.stringify(error);
+    throw new Error(details);
   }
 };
 
 export const scoreCV = async (data: CVData): Promise<CVScore> => {
   const ai = getAI();
   if (!ai) {
-    console.error("ERREUR: La clé API Gemini est manquante.");
     throw new Error("Clé API manquante");
   }
+  const modelName = "gemini-1.5-flash";
   const prompt = `Analyse ce CV et donne un score sur 100, ainsi que les points forts, points faibles et conseils d'amélioration.
   CV: ${JSON.stringify(data)}`;
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: modelName,
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -121,19 +145,20 @@ export const scoreCV = async (data: CVData): Promise<CVScore> => {
       }
     });
 
-    return JSON.parse(response.text || "{}");
-  } catch (error) {
+    if (!response || !response.text) throw new Error("Réponse vide");
+    return JSON.parse(response.text);
+  } catch (error: any) {
     console.error("Gemini CV Scoring Error:", error);
-    throw error;
+    throw new Error(error.message || "Erreur de scoring");
   }
 };
 
 export const generateCoverLetter = async (cvData: CVData, letterData: any): Promise<string> => {
   const ai = getAI();
   if (!ai) {
-    console.error("ERREUR: La clé API Gemini est manquante.");
     throw new Error("Clé API manquante");
   }
+  const modelName = "gemini-1.5-flash";
   const prompt = `Tu es un expert en recrutement. Rédige une lettre de motivation professionnelle, percutante et personnalisée.
   
   CONTEXTE :
@@ -154,13 +179,13 @@ export const generateCoverLetter = async (cvData: CVData, letterData: any): Prom
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: modelName,
       contents: prompt,
     });
 
     return response.text || "";
-  } catch (error) {
+  } catch (error: any) {
     console.error("Gemini Cover Letter Error:", error);
-    throw error;
+    throw new Error(error.message || "Erreur de génération de lettre");
   }
 };
