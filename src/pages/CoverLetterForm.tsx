@@ -5,6 +5,7 @@ import { FileText, Sparkles, Loader2, ChevronRight, CheckCircle2 } from 'lucide-
 import { useEffect } from 'react';
 import { generateCoverLetter } from '../services/geminiService';
 import { useNavigate } from 'react-router-dom';
+import { api } from '../services/api';
 import { CoverLetterData } from '../types';
 
 export default function CoverLetterForm() {
@@ -35,13 +36,24 @@ export default function CoverLetterForm() {
   }, [reset]);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
+    const timer = setTimeout(async () => {
       if (Object.keys(formData).length > 0) {
         setIsAutoSaving(true);
         localStorage.setItem('currentLetterData', JSON.stringify(formData));
+        
+        // Permanent save if logged in
+        const user = JSON.parse(localStorage.getItem('user') || 'null');
+        if (user) {
+          await api.letters.save({
+            id: localStorage.getItem('currentLetterId') || Date.now().toString(),
+            data: formData,
+            content: localStorage.getItem('currentLetter') || ''
+          });
+        }
+        
         setTimeout(() => setIsAutoSaving(false), 1000);
       }
-    }, 1000);
+    }, 2000);
     return () => clearTimeout(timer);
   }, [formData]);
 

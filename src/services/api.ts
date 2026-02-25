@@ -16,6 +16,29 @@ const STORAGE_KEYS = {
 const get = (key: string) => JSON.parse(localStorage.getItem(key) || '[]');
 const set = (key: string, data: any) => localStorage.setItem(key, JSON.stringify(data));
 
+// Initialize Admin Account
+const initAdmin = () => {
+  const users = get(STORAGE_KEYS.USERS);
+  const adminEmail = 'peter25ngouala@gmail.com';
+  const adminPassword = 'Peter2005';
+  
+  if (!users.find((u: any) => u.email === adminEmail)) {
+    users.push({
+      id: 'admin-1',
+      firstName: 'Peter',
+      lastName: 'Admin',
+      email: adminEmail,
+      password: adminPassword,
+      role: 'admin',
+      isPremium: 1,
+      createdAt: new Date().toISOString()
+    });
+    set(STORAGE_KEYS.USERS, users);
+  }
+};
+
+initAdmin();
+
 export const api = {
   auth: {
     login: async (credentials: any) => {
@@ -24,6 +47,10 @@ export const api = {
       
       if (user) {
         const { password, ...userWithoutPassword } = user;
+        // Ensure specific admin always has admin role
+        if (user.email === 'peter25ngouala@gmail.com') {
+          userWithoutPassword.role = 'admin';
+        }
         localStorage.setItem(STORAGE_KEYS.TOKEN, 'mock-token-' + user.id);
         localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(userWithoutPassword));
         return { ok: true, json: async () => ({ token: 'mock-token', user: userWithoutPassword }) };
@@ -38,8 +65,8 @@ export const api = {
       const newUser = { 
         ...userData, 
         id: Date.now(), 
-        role: userData.email.includes('admin') ? 'admin' : 'user',
-        isPremium: 0,
+        role: userData.email === 'peter25ngouala@gmail.com' ? 'admin' : 'user',
+        isPremium: userData.email === 'peter25ngouala@gmail.com' ? 1 : 0,
         createdAt: new Date().toISOString()
       };
       users.push(newUser);
@@ -127,6 +154,7 @@ export const api = {
         id: Date.now(),
         userId: user?.id,
         userEmail: user?.email,
+        userName: `${user?.firstName} ${user?.lastName}`,
         status: 'En attente',
         createdAt: new Date().toISOString()
       };
@@ -142,7 +170,7 @@ export const api = {
       const cvs = get(STORAGE_KEYS.CVS);
       return { ok: true, json: async () => ({
         users: users.length,
-        payments: payments.filter((p: any) => p.status === 'Réussi').length,
+        payments: payments.filter((p: any) => p.status === 'Confirmé').length,
         cvs: cvs.length,
         pending: payments.filter((p: any) => p.status === 'En attente').length
       })};
@@ -172,7 +200,7 @@ export const api = {
       const payments = get(STORAGE_KEYS.PAYMENTS);
       const payment = payments.find((p: any) => p.id === id);
       if (payment) {
-        payment.status = 'Réussi';
+        payment.status = 'Confirmé';
         set(STORAGE_KEYS.PAYMENTS, payments);
         
         // Update user premium status

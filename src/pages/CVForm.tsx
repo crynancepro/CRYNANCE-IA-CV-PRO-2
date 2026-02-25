@@ -6,6 +6,7 @@ import { useEffect } from 'react';
 import { CVData } from '../types';
 import { generateProfessionalCV } from '../services/geminiService';
 import { useNavigate } from 'react-router-dom';
+import { api } from '../services/api';
 
 export default function CVForm() {
   const [step, setStep] = useState(1);
@@ -53,13 +54,24 @@ export default function CVForm() {
   const formData = watch();
 
   useEffect(() => {
-    const timer = setTimeout(() => {
+    const timer = setTimeout(async () => {
       if (Object.keys(formData).length > 0) {
         setIsAutoSaving(true);
-        localStorage.setItem('currentCV', JSON.stringify({ ...formData, photo: photoPreview }));
+        const cvToSave = { ...formData, photo: photoPreview };
+        localStorage.setItem('currentCV', JSON.stringify(cvToSave));
+        
+        // Permanent save if logged in
+        const user = JSON.parse(localStorage.getItem('user') || 'null');
+        if (user) {
+          await api.cvs.save({
+            id: formData.id || localStorage.getItem('currentCVId') || Date.now().toString(),
+            data: cvToSave
+          });
+        }
+        
         setTimeout(() => setIsAutoSaving(false), 1000);
       }
-    }, 1000);
+    }, 2000);
     return () => clearTimeout(timer);
   }, [formData, photoPreview]);
 

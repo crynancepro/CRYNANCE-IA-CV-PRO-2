@@ -9,6 +9,7 @@ export default function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
   const user = JSON.parse(localStorage.getItem('user') || 'null');
+  const isAdmin = user?.email === 'peter25ngouala@gmail.com' || user?.role === 'admin';
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 20);
@@ -27,8 +28,9 @@ export default function Navbar() {
   ];
 
   if (user) {
-    if (user.role === 'admin') {
-      navLinks.push({ name: 'Admin: Utilisateurs', path: '/admin?tab=users', icon: ShieldCheck });
+    if (isAdmin) {
+      navLinks.push({ name: 'Admin: Dashboard', path: '/admin?tab=stats', icon: ShieldCheck });
+      navLinks.push({ name: 'Admin: Utilisateurs', path: '/admin?tab=users', icon: User });
       navLinks.push({ name: 'Admin: Paiements', path: '/admin?tab=payments', icon: CreditCard });
       navLinks.push({ name: 'Admin: Codes Promo', path: '/admin?tab=promos', icon: ShieldCheck });
     } else {
