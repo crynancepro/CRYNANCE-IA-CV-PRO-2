@@ -131,16 +131,24 @@ export default function CVForm() {
       navigate('/cv-preview');
     } catch (error: any) {
       console.error("CV Generation Error:", error);
-      const errorMessage = error.message || "";
+      let errorMessage = error.message || "";
       
-      if (errorMessage.includes("Clé API manquante") || errorMessage.includes("API key not found")) {
-        alert("La clé API Gemini n'est pas configurée. Veuillez configurer GEMINI_API_KEY dans les paramètres de Netlify.");
+      // Si l'erreur est un objet JSON (réponse de l'API Google)
+      try {
+        if (errorMessage.startsWith('{')) {
+          const errorObj = JSON.parse(errorMessage);
+          errorMessage = errorObj.error?.message || errorMessage;
+        }
+      } catch (e) {
+        // Pas un JSON valide, on garde le message original
+      }
+      
+      if (errorMessage.includes("API Key not found") || errorMessage.includes("API_KEY_INVALID")) {
+        alert("⚠️ Erreur de Clé API : Google ne reconnaît pas votre clé. \n\nConseils :\n1. Vérifiez que la clé commence par 'AIza'.\n2. Essayez de nommer la variable 'VITE_GEMINI_API_KEY' dans Netlify au lieu de 'GEMINI_API_KEY'.\n3. Redéployez le site après modification.");
       } else if (errorMessage.includes("403") || errorMessage.includes("permission")) {
-        alert("Erreur de permission (403). Votre clé API n'a peut-être pas accès à ce modèle ou est restreinte par région.");
-      } else if (errorMessage.includes("401") || errorMessage.includes("invalid")) {
-        alert("Clé API invalide (401). Veuillez vérifier votre clé dans les paramètres de Netlify.");
+        alert("🚫 Erreur de permission : Votre clé n'a pas accès à ce service ou votre région est bloquée.");
       } else {
-        alert(`Erreur lors de la génération du CV: ${errorMessage || "Veuillez réessayer."}`);
+        alert(`❌ Erreur lors de la génération : ${errorMessage || "Veuillez réessayer."}`);
       }
     } finally {
       setIsGenerating(false);

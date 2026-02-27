@@ -66,11 +66,22 @@ export default function CoverLetterForm() {
       navigate('/cover-letter-preview');
     } catch (error: any) {
       console.error("Cover Letter Error:", error);
-      const msg = error.message || "";
-      if (msg.includes("Clé API manquante")) {
-        alert("La clé API Gemini n'est pas configurée dans Netlify.");
+      let msg = error.message || "";
+      
+      // Si l'erreur est un objet JSON (réponse de l'API Google)
+      try {
+        if (msg.startsWith('{')) {
+          const errorObj = JSON.parse(msg);
+          msg = errorObj.error?.message || msg;
+        }
+      } catch (e) {
+        // Pas un JSON valide
+      }
+
+      if (msg.includes("API Key not found") || msg.includes("API_KEY_INVALID")) {
+        alert("⚠️ Erreur de Clé API : Google ne reconnaît pas votre clé. \n\nConseils :\n1. Vérifiez que la clé commence par 'AIza'.\n2. Essayez de nommer la variable 'VITE_GEMINI_API_KEY' dans Netlify au lieu de 'GEMINI_API_KEY'.\n3. Redéployez le site après modification.");
       } else {
-        alert(`Erreur lors de la génération de la lettre: ${msg || "Veuillez réessayer."}`);
+        alert(`❌ Erreur lors de la génération de la lettre : ${msg || "Veuillez réessayer."}`);
       }
     } finally {
       setIsGenerating(false);

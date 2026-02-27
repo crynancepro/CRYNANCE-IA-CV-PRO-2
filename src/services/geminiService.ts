@@ -5,17 +5,16 @@ const getApiKey = () => {
   const viteKey = import.meta.env.VITE_GEMINI_API_KEY;
   const processKey = process.env.GEMINI_API_KEY;
   
-  const key = (viteKey as string) || (processKey as string) || "";
+  let key = (viteKey as string) || (processKey as string) || "";
+  key = key.trim();
   
-  if (!key) {
-    console.warn("Gemini API Key: NOT FOUND. Check Netlify environment variables (GEMINI_API_KEY or VITE_GEMINI_API_KEY).");
+  if (!key || key === "undefined" || key === "null") {
+    console.error("Gemini API Key: ABSENTE ou invalide (valeur: " + key + "). Vérifiez Netlify.");
+    return "";
   } else {
-    console.log("Gemini API Key: Found (Length: " + key.length + ")");
+    console.log("Gemini API Key: Détectée (Longueur: " + key.length + ")");
     if (!key.startsWith("AIza")) {
-      console.error("Gemini API Key: Invalid format. It should start with 'AIza'. Please check your key in Netlify.");
-    }
-    if (key.length < 20) {
-      console.warn("Gemini API Key: The key seems unusually short. Please verify it.");
+      console.warn("Gemini API Key: Format inhabituel (ne commence pas par 'AIza'). Vérifiez votre clé dans Netlify.");
     }
   }
   return key;
@@ -38,7 +37,7 @@ export const generateProfessionalCV = async (data: CVData): Promise<CVData> => {
     throw new Error("Clé API manquante ou invalide");
   }
   
-  const modelName = "gemini-1.5-flash"; // Use stable model for production
+  const modelName = "gemini-3-flash-preview"; // Use recommended model
   
   const prompt = `Tu es un expert en recrutement international et rédacteur de CV professionnel. Ta mission est de compléter et d'optimiser ce CV pour le rendre extrêmement compétitif, attrayant et compatible avec les systèmes ATS.
 
@@ -122,7 +121,7 @@ export const scoreCV = async (data: CVData): Promise<CVScore> => {
   if (!ai) {
     throw new Error("Clé API manquante");
   }
-  const modelName = "gemini-1.5-flash";
+  const modelName = "gemini-3-flash-preview";
   const prompt = `Analyse ce CV et donne un score sur 100, ainsi que les points forts, points faibles et conseils d'amélioration.
   CV: ${JSON.stringify(data)}`;
 
@@ -158,7 +157,7 @@ export const generateCoverLetter = async (cvData: CVData, letterData: any): Prom
   if (!ai) {
     throw new Error("Clé API manquante");
   }
-  const modelName = "gemini-1.5-flash";
+  const modelName = "gemini-3-flash-preview";
   const prompt = `Tu es un expert en recrutement. Rédige une lettre de motivation professionnelle, percutante et personnalisée.
   
   CONTEXTE :
