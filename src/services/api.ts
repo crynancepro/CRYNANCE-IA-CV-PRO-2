@@ -123,37 +123,42 @@ export const api = {
   cvs: {
     list: async () => {
       const user = JSON.parse(localStorage.getItem(STORAGE_KEYS.CURRENT_USER) || 'null');
-      const cvs = get(STORAGE_KEYS.CVS).filter((cv: any) => cv.userId === user?.id);
-      return { ok: true, json: async () => cvs };
+      const allCvs = get(STORAGE_KEYS.CVS);
+      const userCv = allCvs.find((cv: any) => cv.userId === user?.id);
+      return { ok: true, json: async () => userCv ? [userCv] : [] };
     },
     save: async (cvData: any) => {
       const user = JSON.parse(localStorage.getItem(STORAGE_KEYS.CURRENT_USER) || 'null');
-      const cvs = get(STORAGE_KEYS.CVS);
-      const index = cvs.findIndex((cv: any) => cv.id === cvData.id);
+      let cvs = get(STORAGE_KEYS.CVS);
       
-      // Strip photo to save space as requested by user
+      // Remove any existing CV for this user to ensure only ONE remains
+      cvs = cvs.filter((cv: any) => cv.userId !== user?.id);
+      
+      // Strip photo to save space
       const { photo, ...textData } = cvData;
       
-      const newCv = { ...textData, userId: user?.id, updatedAt: new Date().toISOString() };
-      if (index > -1) {
-        cvs[index] = newCv;
-      } else {
-        cvs.push({ ...newCv, id: cvData.id || Date.now().toString() });
-      }
+      const newCv = { ...textData, userId: user?.id, updatedAt: new Date().toISOString(), id: 'single-cv' };
+      cvs.push(newCv);
       
       try {
         set(STORAGE_KEYS.CVS, cvs);
       } catch (e) {
-        console.error("Failed to save CVs to localStorage quota exceeded", e);
-        // If it fails, try to remove older CVs or just show error
-        alert("Erreur : Espace de stockage plein. Veuillez supprimer d'anciens CV.");
+        console.error("Failed to save CV to localStorage", e);
+        alert("Erreur : Espace de stockage plein.");
         return { ok: false, status: 507 };
       }
       return { ok: true, json: async () => ({ success: true }) };
     },
     delete: async (id: string) => {
-      const cvs = get(STORAGE_KEYS.CVS).filter((cv: any) => cv.id !== id);
+      const user = JSON.parse(localStorage.getItem(STORAGE_KEYS.CURRENT_USER) || 'null');
+      let cvs = get(STORAGE_KEYS.CVS);
+      cvs = cvs.filter((cv: any) => cv.userId !== user?.id);
       set(STORAGE_KEYS.CVS, cvs);
+      
+      // Also clear the current session CV
+      localStorage.removeItem('currentCV');
+      localStorage.removeItem('currentCV_photo');
+      
       return { ok: true };
     }
   },

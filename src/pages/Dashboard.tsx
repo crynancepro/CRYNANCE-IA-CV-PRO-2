@@ -130,7 +130,8 @@ export default function Dashboard() {
     if (!confirm("Supprimer ce CV ?")) return;
     try {
       await api.cvs.delete(id);
-      setCvs(cvs.filter(cv => cv.id !== id));
+      setCvs([]); // Ensure list is cleared as only one CV is allowed
+      alert("CV supprimé avec succès");
     } catch (error) {
       console.error(error);
     }

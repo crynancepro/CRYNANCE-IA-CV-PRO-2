@@ -127,6 +127,10 @@ export default function CVForm() {
         }];
       }
       
+      // Remove old CV before saving new one as requested
+      localStorage.removeItem('currentCV');
+      localStorage.removeItem('currentCV_photo');
+      
       storage.saveCV(finalData);
       navigate('/cv-preview');
     } catch (error: any) {
