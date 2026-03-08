@@ -31,8 +31,22 @@ export default function CoverLetterForm() {
 
   useEffect(() => {
     const saved = storage.loadLetterData();
+    const cvData = storage.loadCV();
+    
     if (saved) {
       reset(saved);
+    } else if (cvData) {
+      // Pre-fill with CV data if no letter data exists
+      reset({
+        firstName: cvData.firstName || '',
+        lastName: cvData.lastName || '',
+        email: cvData.email || '',
+        phone: cvData.phone || '',
+        targetJob: cvData.jobTitle || '',
+        company: '',
+        contractType: 'CDI',
+        motivation: ''
+      });
     }
   }, [reset]);
 

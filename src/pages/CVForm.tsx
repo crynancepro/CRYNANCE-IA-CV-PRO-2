@@ -31,7 +31,8 @@ export default function CVForm() {
       flaws: [''],
       interests: [''],
       language: 'fr',
-      template: 'modern'
+      template: 'modern',
+      jobTitle: ''
     }
   });
 
@@ -97,9 +98,12 @@ export default function CVForm() {
           experiences: finalData.language === 'fr' ? 'Expériences' : 'Experience',
           education: finalData.language === 'fr' ? 'Formation' : 'Education',
           qualities: finalData.language === 'fr' ? 'Qualités' : 'Qualities',
+          flaws: finalData.language === 'fr' ? 'Défauts' : 'Flaws',
           interests: finalData.language === 'fr' ? 'Centres d\'intérêt' : 'Interests',
           profile: finalData.language === 'fr' ? 'Profil' : 'Profile',
-          divers: finalData.language === 'fr' ? 'Divers' : 'Miscellaneous'
+          divers: finalData.language === 'fr' ? 'Divers' : 'Miscellaneous',
+          references: finalData.language === 'fr' ? 'Références' : 'References',
+          languages: finalData.language === 'fr' ? 'Langues' : 'Languages'
         };
       }
 
@@ -254,6 +258,10 @@ export default function CVForm() {
                   <div className="space-y-2">
                     <label className="text-sm font-semibold text-slate-700">Nom</label>
                     <input {...register("lastName", { required: true })} className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:border-primary focus:ring-2 focus:ring-primary/10 outline-none transition-all" placeholder="Dupont" />
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <label className="text-sm font-semibold text-slate-700">Poste visé</label>
+                    <input {...register("jobTitle", { required: true })} className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:border-primary focus:ring-2 focus:ring-primary/10 outline-none transition-all" placeholder="Ex: Développeur Web, Comptable, etc." />
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-semibold text-slate-700">Email</label>

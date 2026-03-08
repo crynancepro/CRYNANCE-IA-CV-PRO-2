@@ -52,3 +52,98 @@
   @apply shadow-[0_8px_30px_rgb(0,0,0,0.04)];
 }
 
+/* Print Styles for A4 CV */
+@media print {
+  @page {
+    size: A4;
+    margin: 0;
+  }
+
+  body {
+    background: white !important;
+    margin: 0;
+    padding: 0;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  /* Ensure only the CV is visible and correctly positioned */
+  body * {
+    visibility: hidden;
+  }
+
+  #cv-render, #cv-render * {
+    visibility: visible;
+  }
+
+  #cv-render {
+    visibility: visible !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 210mm !important;
+    min-height: 297mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    transform: none !important;
+    background: white !important;
+  }
+
+  .page-break {
+    page-break-before: always;
+  }
+
+  /* Prevent elements from being cut off */
+  section, .experience-item, .education-item {
+    page-break-inside: avoid;
+  }
+
+  /* Adjust text size if content is too long */
+  .cv-content-auto {
+    font-size: 0.9em;
+    line-height: 1.4;
+  }
+
+  .cv-content-auto h1 { font-size: 1.8em; }
+  .cv-content-auto h2 { font-size: 1.4em; }
+  .cv-content-auto h3 { font-size: 1.1em; }
+}
+
+/* Auto-compacting for long content */
+.cv-content-auto {
+  transition: all 0.3s ease;
+}
+
+/* If the content is dense, these classes can be applied or used as defaults */
+.cv-compact {
+  font-size: 0.85rem !important;
+}
+
+.cv-compact h1 { font-size: 1.5rem !important; }
+.cv-compact h2 { font-size: 1.15rem !important; }
+.cv-compact h3 { font-size: 1rem !important; }
+
+.cv-compact .experience-item {
+  margin-bottom: 0.5rem !important;
+}
+
+.cv-compact .space-y-8 > * + * {
+  margin-top: 0.75rem !important;
+}
+
+.cv-compact .space-y-6 > * + * {
+  margin-top: 0.5rem !important;
+}
+
+.cv-compact .p-8, .cv-compact .p-10, .cv-compact .p-12 {
+  padding: 1rem !important;
+}
+
+.cv-compact .mb-8 { margin-bottom: 0.5rem !important; }
+.cv-compact .mb-6 { margin-bottom: 0.4rem !important; }
+.cv-compact .mb-4 { margin-bottom: 0.3rem !important; }
+

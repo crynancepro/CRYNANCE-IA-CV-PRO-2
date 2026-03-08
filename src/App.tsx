@@ -19,7 +19,9 @@ export default function App() {
   return (
     <Router>
       <div className="min-h-screen bg-slate-50">
-        <Navbar />
+        <div className="no-print">
+          <Navbar />
+        </div>
         <main>
           <Routes>
             <Route path="/" element={<Home />} />
@@ -38,7 +40,7 @@ export default function App() {
           </Routes>
         </main>
         
-        <footer className="bg-white border-t border-slate-100 py-12">
+        <footer className="bg-white border-t border-slate-100 py-12 no-print">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
             <p className="text-slate-500 text-sm">
               © {new Date().getFullYear()} CV IA Pro. Tous droits réservés.

@@ -23,9 +23,12 @@ export interface CVSections {
   experiences: string;
   education: string;
   qualities: string;
+  flaws: string;
   interests: string;
   profile: string;
   divers: string;
+  references?: string;
+  languages: string;
 }
 
 export interface CVData {
@@ -45,10 +48,13 @@ export interface CVData {
   flaws: string[];
   interests: string[];
   language: 'fr' | 'en';
-  template: 'modern' | 'classic' | 'creative';
+  template: 'modern' | 'classic' | 'creative' | 'blue' | 'pink' | 'dark' | 'orange';
+  isCompact?: boolean;
   jobTitle?: string;
   level?: string;
   sections?: CVSections;
+  references?: string;
+  website?: string;
 }
 
 export interface Experience {

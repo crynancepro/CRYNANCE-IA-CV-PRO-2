@@ -39,20 +39,22 @@ export const generateProfessionalCV = async (data: CVData): Promise<CVData> => {
   
   const modelName = "gemini-3-flash-preview"; // Use recommended model
   
-  const prompt = `Tu es un expert en recrutement international et rédacteur de CV professionnel. Ta mission est de compléter et d'optimiser ce CV pour le rendre extrêmement compétitif, attrayant et compatible avec les systèmes ATS.
-
-  RÈGLES STRICTES : 
-  1. AUCUNE SECTION NE DOIT ÊTRE VIDE. Si l'utilisateur n'a pas fourni d'informations pour une section, tu DOIS inventer du contenu professionnel réaliste, valorisant et parfaitement cohérent avec le métier visé (${data.jobTitle || 'Professionnel'}).
-  2. PROFIL : Rédige un paragraphe d'accroche percutant de 3 à 5 lignes qui résume l'expertise et la valeur ajoutée.
-  3. COMPÉTENCES : Fournis EXACTEMENT 6 compétences techniques (skills) et 6 compétences informatiques/outils (itSkills) pertinentes.
-  4. EXPÉRIENCES : Fournis au moins 3 expériences professionnelles détaillées. Pour chaque expérience, invente un nom d'entreprise crédible, des dates cohérentes et 4-5 puces de missions/réalisations concrètes et chiffrées.
-  5. FORMATION : Fournis au moins 2 formations académiques réalistes (Diplôme, École, Année).
-  6. QUALITÉS & INTÉRÊTS : Ajoute 5 qualités professionnelles (soft skills) et 4 centres d'intérêt qui valorisent le profil.
-  7. TON : Utilise un vocabulaire soutenu, dynamique et orienté résultats.
+  const prompt = `Tu es un expert en recrutement international. Ta mission est d'optimiser ce CV pour qu'il soit extrêmement percutant, professionnel et surtout CONCIS.
+  
+  OBJECTIF : Le CV doit impérativement tenir sur UNE SEULE PAGE A4.
+  
+  RÈGLES DE RÉDACTION :
+  1. CONCISION EXTRÊME : Utilise des phrases courtes, simples et directes. Supprime tout verbiage ou répétition.
+  2. PROFIL : Rédige une accroche percutante de MAXIMUM 2 lignes.
+  3. EXPÉRIENCES : Pour chaque expérience, limite la description à 3-4 puces (bullet points) maximum. Chaque puce doit être courte et orientée résultats.
+  4. COMPÉTENCES : Sélectionne les 6 compétences les plus pertinentes pour le poste.
+  5. QUALITÉS & DÉFAUTS : Liste 3 qualités et 2 défauts professionnels (non rédhibitoires).
+  6. PAS D'INVENTION INUTILE : Optimise et valorise les données fournies par l'utilisateur. Si une section est vraiment vide, complète-la avec du contenu standard et réaliste pour le métier visé (${data.jobTitle || 'Professionnel'}), mais reste minimaliste.
+  7. MISE EN PAGE : Le contenu doit être structuré pour une lecture rapide (scannabilité).
   
   Langue: ${data.language === 'fr' ? 'Français' : 'Anglais'}.
   
-  Données actuelles de l'utilisateur (à compléter et enrichir) : ${JSON.stringify(data)}`;
+  Données de l'utilisateur : ${JSON.stringify(data)}`;
 
   try {
     console.log(`Calling Gemini API with model: ${modelName}...`);

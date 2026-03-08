@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { Download, FileText, FileDown, CheckCircle2, AlertCircle, Sparkles, Loader2, ChevronLeft, Save, Zap, Edit3, RefreshCw, Mail, Phone, MapPin, Globe, Star } from 'lucide-react';
+import { Download, FileText, FileDown, CheckCircle2, AlertCircle, Sparkles, Loader2, ChevronLeft, Save, Zap, Edit3, RefreshCw, Mail, Phone, MapPin, Globe, Star, Maximize2 } from 'lucide-react';
 import { api } from '../services/api';
 import { CVData, CVScore } from '../types';
 import { scoreCV, generateProfessionalCV } from '../services/geminiService';
@@ -20,6 +20,7 @@ export default function CVPreview() {
   const [isExporting, setIsExporting] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [showPayModal, setShowPayModal] = useState(false);
+  const [isCompact, setIsCompact] = useState(false);
   const user = JSON.parse(localStorage.getItem('user') || 'null');
   const [currentUser, setCurrentUser] = useState<any>(user);
   const navigate = useNavigate();
@@ -65,6 +66,10 @@ export default function CVPreview() {
     if (template === 'modern') expiry = currentUser.modernExpiresAt;
     if (template === 'classic') expiry = currentUser.classicExpiresAt;
     if (template === 'creative') expiry = currentUser.creativeExpiresAt;
+    if (template === 'blue') expiry = currentUser.blueExpiresAt;
+    if (template === 'pink') expiry = currentUser.pinkExpiresAt;
+    if (template === 'dark') expiry = currentUser.darkExpiresAt;
+    if (template === 'orange') expiry = currentUser.orangeExpiresAt;
     
     if (!expiry) return { active: false, expired: false };
     const active = new Date(expiry) > new Date();
@@ -88,11 +93,19 @@ export default function CVPreview() {
           experiences: parsed.language === 'fr' ? 'Expériences' : 'Experience',
           education: parsed.language === 'fr' ? 'Formation' : 'Education',
           qualities: parsed.language === 'fr' ? 'Qualités' : 'Qualities',
+          flaws: parsed.language === 'fr' ? 'Défauts' : 'Flaws',
           interests: parsed.language === 'fr' ? 'Centres d\'intérêt' : 'Interests',
           profile: parsed.language === 'fr' ? 'Profil' : 'Profile',
-          divers: parsed.language === 'fr' ? 'Divers' : 'Miscellaneous'
+          divers: parsed.language === 'fr' ? 'Divers' : 'Miscellaneous',
+          references: parsed.language === 'fr' ? 'Références' : 'References',
+          languages: parsed.language === 'fr' ? 'Langues' : 'Languages'
         };
       }
+      
+      if (!parsed.qualities) parsed.qualities = [];
+      if (!parsed.flaws) parsed.flaws = [];
+      if (!parsed.references) parsed.references = parsed.language === 'fr' ? 'Juliana Silva\nRimberio / CTO\n+123-456-7890\n\nDonna Stroupe\nBorcelle / CEO\n+123-456-7890' : 'Juliana Silva\nRimberio / CTO\n+123-456-7890\n\nDonna Stroupe\nBorcelle / CEO\n+123-456-7890';
+      if (!parsed.website) parsed.website = 'www.reallygreatsite.com';
       
       setCvData(parsed);
       handleScore(parsed);
@@ -176,6 +189,15 @@ export default function CVPreview() {
     }
   };
 
+  const printCV = () => {
+    if (!cvData) return;
+    if (!isSubscribed(cvData.template)) {
+      setShowPayModal(true);
+      return;
+    }
+    window.print();
+  };
+
   const exportPDF = async () => {
     if (!cvRef.current || !cvData) return;
     
@@ -188,20 +210,31 @@ export default function CVPreview() {
     try {
       const element = cvRef.current;
       
-      // Force natural size for capture
-      const originalStyle = element.style.transform;
+      // Force A4 dimensions for capture
+      const originalWidth = element.style.width;
+      const originalMinHeight = element.style.minHeight;
+      const originalTransform = element.style.transform;
+      const originalOverflow = element.style.overflow;
+      
+      // A4 dimensions in pixels at 96 DPI
+      element.style.width = '210mm';
+      element.style.minHeight = '297mm';
       element.style.transform = 'none';
+      element.style.overflow = 'visible'; // Ensure all content is visible
       
       const dataUrl = await toPng(element, {
         quality: 1,
-        pixelRatio: 2,
+        pixelRatio: 3, // Higher quality
         backgroundColor: '#ffffff',
-        width: element.offsetWidth,
-        height: element.offsetHeight
+        width: element.scrollWidth, // Use scrollWidth/scrollHeight to capture everything
+        height: element.scrollHeight
       });
 
       // Restore style
-      element.style.transform = originalStyle;
+      element.style.width = originalWidth;
+      element.style.minHeight = originalMinHeight;
+      element.style.transform = originalTransform;
+      element.style.overflow = originalOverflow;
 
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
@@ -351,7 +384,7 @@ export default function CVPreview() {
             spacing: { after: 200 }
           }),
 
-          // Qualities & Interests
+          // Qualities, Flaws & Interests
           new Paragraph({
             children: [new TextRun({ text: `${sections.qualities.toUpperCase()} & ${sections.interests.toUpperCase()}`, bold: true, size: 28, color: "0F172A" })],
             border: { bottom: { color: "E2E8F0", space: 4, style: BorderStyle.SINGLE, size: 12 } },
@@ -363,6 +396,14 @@ export default function CVPreview() {
               new TextRun({ text: cvData.qualities.join(', '), size: 20, color: "475569" })
             ],
           }),
+          ...(cvData.flaws && cvData.flaws.length > 0 ? [
+            new Paragraph({ 
+              children: [
+                new TextRun({ text: `${sections.flaws}: `, bold: true, size: 20, color: "0F172A" }),
+                new TextRun({ text: cvData.flaws.join(', '), size: 20, color: "475569" })
+              ],
+            })
+          ] : []),
           new Paragraph({ 
             children: [
               new TextRun({ text: `${sections.interests}: `, bold: true, size: 20, color: "0F172A" }),
@@ -440,7 +481,7 @@ export default function CVPreview() {
         <div className="flex flex-col lg:flex-row gap-8">
           {/* Left: Preview */}
           <div className="lg:w-2/3">
-            <div className="flex flex-wrap justify-between items-center mb-6 gap-4">
+            <div className="flex flex-wrap justify-between items-center mb-6 gap-4 no-print">
               <button onClick={() => navigate('/create-cv')} className="flex items-center space-x-2 text-slate-600 font-bold hover:text-primary transition-colors">
                 <ChevronLeft size={20} /> <span>Retour</span>
               </button>
@@ -460,15 +501,19 @@ export default function CVPreview() {
                   <span>Sauvegarder</span>
                 </button>
 
-                <div className="relative group">
+                <div className="relative group no-print">
                   <button className="flex items-center space-x-2 bg-primary text-white px-6 py-2 rounded-xl font-bold hover:bg-primary-dark transition-all shadow-lg shadow-primary/20">
                     <Download size={18} />
                     <span>Télécharger</span>
                   </button>
                   <div className="absolute top-full right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-100 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+                    <button onClick={printCV} className="w-full flex items-center space-x-3 px-4 py-3 hover:bg-slate-50 text-left text-sm font-medium border-b border-slate-50">
+                      <FileText size={18} className="text-primary" />
+                      <span>Imprimer / PDF</span>
+                    </button>
                     <button onClick={exportPDF} disabled={isExporting} className="w-full flex items-center space-x-3 px-4 py-3 hover:bg-slate-50 text-left text-sm font-medium border-b border-slate-50">
                       <FileDown size={18} className="text-red-500" />
-                      <span>Format PDF</span>
+                      <span>Format PDF Direct</span>
                     </button>
                     <button onClick={exportWord} className="w-full flex items-center space-x-3 px-4 py-3 hover:bg-slate-50 text-left text-sm font-medium">
                       <FileText size={18} className="text-blue-500" />
@@ -479,7 +524,7 @@ export default function CVPreview() {
               </div>
             </div>
 
-            <div className="bg-emerald-100 text-emerald-700 p-4 rounded-xl mb-6 flex items-center space-x-3 border border-emerald-200">
+            <div className="bg-emerald-100 text-emerald-700 p-4 rounded-xl mb-6 flex items-center space-x-3 border border-emerald-200 no-print">
               <Edit3 size={20} />
               <span className="font-bold text-sm">Mode Édition : Cliquez sur n'importe quel texte pour le modifier.</span>
             </div>
@@ -487,49 +532,172 @@ export default function CVPreview() {
             {/* CV Template Render */}
             <div className="overflow-auto bg-slate-200 p-4 md:p-8 rounded-xl border border-slate-200 flex justify-center">
               <div 
-                className="bg-white shadow-2xl origin-top transition-transform" 
+                className={`bg-white shadow-2xl origin-top transition-transform ${isCompact ? 'cv-compact' : ''}`} 
                 id="cv-render" 
                 ref={cvRef}
                 style={{ 
-                  width: '794px', 
-                  minHeight: '1123px',
-                  transform: 'scale(1)', // Will be adjusted by CSS or JS if needed, but 794px is the base
+                  width: '210mm', 
+                  minHeight: '297mm',
+                  transform: 'scale(1)',
                 }}
                 onContextMenu={(e) => e.preventDefault()}
               >
                 {cvData.template === 'modern' && <ModernTemplate data={cvData} onUpdate={updateCV} />}
                 {cvData.template === 'classic' && <ClassicTemplate data={cvData} onUpdate={updateCV} />}
                 {cvData.template === 'creative' && <CreativeTemplate data={cvData} onUpdate={updateCV} />}
+                {cvData.template === 'blue' && <BlueTemplate data={cvData} onUpdate={updateCV} />}
+                {cvData.template === 'pink' && <PinkTemplate data={cvData} onUpdate={updateCV} />}
+                {cvData.template === 'dark' && <DarkTemplate data={cvData} onUpdate={updateCV} />}
+                {cvData.template === 'orange' && <OrangeTemplate data={cvData} onUpdate={updateCV} />}
               </div>
             </div>
           </div>
 
           {/* Right: Analysis & Advice */}
-          <div className="lg:w-1/3 space-y-6">
+          <div className="lg:w-1/3 space-y-6 no-print">
+            <div className="bg-white p-6 rounded-3xl shadow-xl border border-slate-100 mb-6">
+              <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center space-x-2">
+                <Zap className="text-primary" size={20} />
+                <span>Actions Rapides</span>
+              </h3>
+              <div className="space-y-3">
+                <button
+                  onClick={() => {
+                    if (cvData) {
+                      storage.saveCV(cvData);
+                      navigate('/cover-letter');
+                    }
+                  }}
+                  className="w-full flex items-center justify-center space-x-2 bg-slate-900 text-white py-3 rounded-xl font-bold hover:bg-slate-800 transition-all shadow-lg shadow-slate-900/10"
+                >
+                  <Sparkles size={18} />
+                  <span>Lettre de Motivation</span>
+                </button>
+                <button
+                  onClick={() => handleAIFill()}
+                  disabled={isGenerating}
+                  className="w-full flex items-center justify-center space-x-2 bg-primary/10 text-primary py-3 rounded-xl font-bold hover:bg-primary/20 transition-all border border-primary/20"
+                >
+                  {isGenerating ? <Loader2 className="animate-spin" size={18} /> : <Zap size={18} />}
+                  <span>Optimiser avec l'IA</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="bg-white p-6 rounded-3xl shadow-xl border border-slate-100 mb-6">
+              <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center space-x-2">
+                <Maximize2 className="text-primary" size={20} />
+                <span>Mise en Page</span>
+              </h3>
+              <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+                <div className="flex flex-col">
+                  <span className="text-sm font-bold text-slate-700">Mode Compact</span>
+                  <span className="text-xs text-slate-500">Force le CV sur une page</span>
+                </div>
+                <button 
+                  onClick={() => updateCV({ isCompact: !cvData.isCompact })}
+                  className={`w-12 h-6 rounded-full transition-all relative ${cvData.isCompact ? 'bg-primary' : 'bg-slate-300'}`}
+                >
+                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${cvData.isCompact ? 'left-7' : 'left-1'}`}></div>
+                </button>
+              </div>
+            </div>
+
             <div className="bg-white p-6 rounded-3xl shadow-xl border border-slate-100 mb-6">
               <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center space-x-2">
                 <FileText className="text-primary" size={20} />
                 <span>Style du Template</span>
               </h3>
-              <div className="grid grid-cols-3 gap-3">
-                {['modern', 'classic', 'creative'].map((t) => (
-                  <button
-                    key={t}
-                    onClick={() => {
-                      if (!isSubscribed(t)) {
-                        setShowPayModal(true);
-                        return;
-                      }
-                      updateCV({ template: t as any });
-                    }}
-                    className={`p-2 rounded-xl border-2 transition-all text-xs font-bold capitalize flex flex-col items-center space-y-1 ${
-                      cvData.template === t ? 'border-primary bg-primary/5 text-primary' : 'border-slate-100 text-slate-500 hover:border-slate-200'
-                    }`}
-                  >
-                    <span>{t}</span>
-                    {!isSubscribed(t) && <Zap size={10} className="text-primary" />}
-                  </button>
-                ))}
+              
+              <div className="space-y-6">
+                <div>
+                  <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">Templates Classiques</h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    {['classic', 'blue', 'pink', 'orange'].map((t) => (
+                      <button
+                        key={t}
+                        onClick={() => {
+                          if (!isSubscribed(t)) {
+                            setShowPayModal(true);
+                            return;
+                          }
+                          updateCV({ template: t as any });
+                        }}
+                        className={`p-3 rounded-2xl border-2 transition-all text-xs font-bold capitalize flex flex-col items-center space-y-2 ${
+                          cvData.template === t ? 'border-primary bg-primary/5 text-primary shadow-sm' : 'border-slate-100 text-slate-500 hover:border-slate-200'
+                        }`}
+                      >
+                        <div className={`w-full h-12 rounded-lg mb-1 flex items-center justify-center ${
+                          t === 'classic' ? 'bg-slate-800' : 
+                          t === 'blue' ? 'bg-[#2d4a63]' : 
+                          t === 'pink' ? 'bg-[#e8b4b8]' : 
+                          'bg-[#f27d26]'
+                        }`}>
+                          <FileText size={20} className="text-white/40" />
+                        </div>
+                        <div className="flex items-center space-x-1">
+                          <span>{t}</span>
+                          {!isSubscribed(t) && <Zap size={10} className="text-primary" />}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">Modernes & Créatifs</h4>
+                  <div className="grid grid-cols-3 gap-3">
+                    {['modern', 'creative', 'dark'].map((t) => (
+                      <button
+                        key={t}
+                        onClick={() => {
+                          if (!isSubscribed(t)) {
+                            setShowPayModal(true);
+                            return;
+                          }
+                          updateCV({ template: t as any });
+                        }}
+                        className={`p-2 rounded-xl border-2 transition-all text-xs font-bold capitalize flex flex-col items-center space-y-1 ${
+                          cvData.template === t ? 'border-primary bg-primary/5 text-primary' : 'border-slate-100 text-slate-500 hover:border-slate-200'
+                        }`}
+                      >
+                        <div className={`w-full h-8 rounded-md mb-1 flex items-center justify-center ${
+                          t === 'modern' ? 'bg-slate-900' : 
+                          t === 'creative' ? 'bg-emerald-500' : 
+                          'bg-[#0f111a]'
+                        }`}>
+                          <Sparkles size={14} className="text-white/40" />
+                        </div>
+                        <div className="flex items-center space-x-1">
+                          <span>{t}</span>
+                          {!isSubscribed(t) && <Zap size={10} className="text-primary" />}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white p-6 rounded-3xl shadow-xl border border-slate-100 mb-6">
+              <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center space-x-2">
+                <Zap className="text-amber-500" size={20} />
+                <span>Optimisation d'Espace</span>
+              </h3>
+              <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                <div>
+                  <p className="font-bold text-slate-900 text-sm">Mode Compact</p>
+                  <p className="text-xs text-slate-500">Réduit les marges et la taille du texte pour faire tenir sur 1 page.</p>
+                </div>
+                <button 
+                  onClick={() => setIsCompact(!isCompact)}
+                  className={`w-12 h-6 rounded-full transition-all relative ${isCompact ? 'bg-primary' : 'bg-slate-300'}`}
+                >
+                  <motion.div 
+                    animate={{ x: isCompact ? 24 : 4 }}
+                    className="absolute top-1 w-4 h-4 bg-white rounded-full shadow-sm"
+                  />
+                </button>
               </div>
             </div>
 
@@ -653,9 +821,9 @@ const Editable = ({ text, onSave, className, multiline = false }: { text: string
 };
 
 const ModernTemplate = ({ data, onUpdate }: { data: CVData, onUpdate: (d: Partial<CVData>) => void }) => (
-  <div className="flex min-h-[1123px] w-[794px] font-sans text-slate-800 bg-white">
+  <div className={`cv-container cv-content-auto flex min-h-[297mm] w-[210mm] font-sans text-slate-800 bg-white shadow-2xl mx-auto ${data.isCompact ? 'cv-compact' : ''}`}>
     {/* Sidebar */}
-    <div className="w-1/3 bg-slate-900 text-white p-8">
+    <div className="w-[35%] bg-slate-900 text-white p-8 flex flex-col">
       {data.photo && (
         <div className="w-32 h-32 rounded-2xl overflow-hidden mb-8 border-4 border-white/10 mx-auto">
           <img src={data.photo} alt="Profile" className="w-full h-full object-cover" />
@@ -718,7 +886,7 @@ const ModernTemplate = ({ data, onUpdate }: { data: CVData, onUpdate: (d: Partia
           </div>
         </section>
 
-        <section>
+        <section className="break-inside-avoid">
           <Editable 
             text={data.sections?.qualities || 'Qualités'} 
             className="text-xs font-bold text-primary uppercase tracking-widest mb-4" 
@@ -740,6 +908,31 @@ const ModernTemplate = ({ data, onUpdate }: { data: CVData, onUpdate: (d: Partia
             ))}
           </div>
         </section>
+
+        {data.flaws && data.flaws.length > 0 && (
+          <section className="break-inside-avoid">
+            <Editable 
+              text={data.sections?.flaws || 'Défauts'} 
+              className="text-xs font-bold text-primary uppercase tracking-widest mb-4" 
+              onSave={(val) => onUpdate({ sections: { ...data.sections!, flaws: val } })} 
+            />
+            <div className="space-y-1 text-sm text-slate-300">
+              {data.flaws.map((f, i) => (
+                <div key={i} className="flex items-start space-x-1">
+                  <span>•</span>
+                  <Editable 
+                    text={f} 
+                    onSave={(val) => {
+                      const newF = [...data.flaws];
+                      newF[i] = val;
+                      onUpdate({ flaws: newF });
+                    }} 
+                  />
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         <section>
           <Editable 
@@ -767,8 +960,8 @@ const ModernTemplate = ({ data, onUpdate }: { data: CVData, onUpdate: (d: Partia
     </div>
 
     {/* Main Content */}
-    <div className="w-2/3 p-12 bg-white">
-      <header className="mb-12">
+    <div className="w-[65%] p-8 bg-white flex flex-col overflow-hidden">
+      <header className="mb-6">
         <div className="flex space-x-2 text-4xl font-bold text-slate-900 uppercase tracking-tight">
           <Editable text={data.firstName} onSave={(val) => onUpdate({ firstName: val })} />
           <Editable text={data.lastName} onSave={(val) => onUpdate({ lastName: val })} />
@@ -782,7 +975,7 @@ const ModernTemplate = ({ data, onUpdate }: { data: CVData, onUpdate: (d: Partia
         />
       </header>
 
-      <section className="mb-10">
+      <section className="mb-8 experience-item break-inside-avoid">
         <Editable 
           text={data.sections?.experiences || 'Expériences'} 
           className="text-lg font-bold text-slate-900 uppercase tracking-widest border-b-2 border-slate-100 pb-2 mb-6" 
@@ -839,7 +1032,7 @@ const ModernTemplate = ({ data, onUpdate }: { data: CVData, onUpdate: (d: Partia
         </div>
       </section>
 
-      <section>
+      <section className="education-item break-inside-avoid">
         <Editable 
           text={data.sections?.education || 'Formation'} 
           className="text-lg font-bold text-slate-900 uppercase tracking-widest border-b-2 border-slate-100 pb-2 mb-6" 
@@ -881,17 +1074,31 @@ const ModernTemplate = ({ data, onUpdate }: { data: CVData, onUpdate: (d: Partia
           ))}
         </div>
       </section>
+
+      <section className="references-item break-inside-avoid mt-8">
+        <Editable 
+          text={data.sections?.references || 'Références'} 
+          className="text-lg font-bold text-slate-900 uppercase tracking-widest border-b-2 border-slate-100 pb-2 mb-6" 
+          onSave={(val) => onUpdate({ sections: { ...data.sections!, references: val } })} 
+        />
+        <Editable 
+          text={data.references || ''} 
+          multiline 
+          className="text-sm text-slate-600 leading-relaxed whitespace-pre-line" 
+          onSave={(val) => onUpdate({ references: val })} 
+        />
+      </section>
     </div>
   </div>
 );
 
 const ClassicTemplate = ({ data, onUpdate }: { data: CVData, onUpdate: (d: Partial<CVData>) => void }) => (
-  <div className="min-h-[1123px] w-[794px] font-sans text-slate-900 bg-white flex relative overflow-hidden">
+  <div className={`cv-container cv-content-auto min-h-[297mm] w-[210mm] font-sans text-slate-900 bg-white flex relative shadow-2xl mx-auto ${data.isCompact ? 'cv-compact' : ''}`}>
     {/* Sidebar */}
-    <div className="w-1/3 bg-slate-800 text-white p-8 flex flex-col">
+    <div className="w-[35%] bg-slate-800 text-white p-8 flex flex-col">
        {/* Name & Job Title */}
-       <div className="mb-12">
-          <h1 className="text-4xl font-black leading-tight mb-1">
+       <div className={data.isCompact ? 'mb-6' : 'mb-12'}>
+          <h1 className={`${data.isCompact ? 'text-2xl' : 'text-4xl'} font-black leading-tight mb-1`}>
              <Editable text={data.firstName} onSave={(val) => onUpdate({ firstName: val })} />
              <br />
              <Editable text={data.lastName} onSave={(val) => onUpdate({ lastName: val })} />
@@ -899,62 +1106,62 @@ const ClassicTemplate = ({ data, onUpdate }: { data: CVData, onUpdate: (d: Parti
           <div className="h-1 w-12 bg-amber-400 mb-4"></div>
           <Editable 
             text={data.experiences[0]?.position || data.jobTitle} 
-            className="text-xl font-bold text-white/80" 
+            className={`${data.isCompact ? 'text-lg' : 'text-xl'} font-bold text-white/80`} 
             onSave={(val) => onUpdate({ jobTitle: val })} 
           />
        </div>
 
        {/* Contact */}
-       <section className="mb-10">
-          <div className="bg-white text-slate-800 rounded-full px-6 py-2 inline-flex items-center space-x-2 mb-6">
+       <section className={data.isCompact ? 'mb-6' : 'mb-10'}>
+          <div className={`bg-white text-slate-800 rounded-full px-6 py-2 inline-flex items-center space-x-2 ${data.isCompact ? 'mb-3' : 'mb-6'}`}>
              <div className="w-2 h-2 bg-slate-800 rounded-full"></div>
              <Editable text={data.sections?.contact || 'contact'} className="font-bold uppercase tracking-widest text-sm" onSave={(val) => onUpdate({ sections: { ...data.sections!, contact: val } })} />
           </div>
-          <div className="space-y-4 text-sm">
+          <div className={`space-y-2 ${data.isCompact ? 'text-xs' : 'text-sm'}`}>
              <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 rounded-full border border-amber-400 flex items-center justify-center text-amber-400">
-                   <Phone size={14} />
+                <div className={`${data.isCompact ? 'w-6 h-6' : 'w-8 h-8'} rounded-full border border-amber-400 flex items-center justify-center text-amber-400`}>
+                   <Phone size={data.isCompact ? 12 : 14} />
                 </div>
                 <Editable text={data.phone} onSave={(val) => onUpdate({ phone: val })} />
              </div>
              <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 rounded-full border border-amber-400 flex items-center justify-center text-amber-400">
-                   <Mail size={14} />
+                <div className={`${data.isCompact ? 'w-6 h-6' : 'w-8 h-8'} rounded-full border border-amber-400 flex items-center justify-center text-amber-400`}>
+                   <Mail size={data.isCompact ? 12 : 14} />
                 </div>
                 <Editable text={data.email} onSave={(val) => onUpdate({ email: val })} />
              </div>
              <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 rounded-full border border-amber-400 flex items-center justify-center text-amber-400">
-                   <MapPin size={14} />
+                <div className={`${data.isCompact ? 'w-6 h-6' : 'w-8 h-8'} rounded-full border border-amber-400 flex items-center justify-center text-amber-400`}>
+                   <MapPin size={data.isCompact ? 12 : 14} />
                 </div>
                 <Editable text={data.sections?.address || '123, rue Anywhere, ville Any'} onSave={(val) => onUpdate({ sections: { ...data.sections!, address: val } })} />
              </div>
              <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 rounded-full border border-amber-400 flex items-center justify-center text-amber-400">
-                   <Globe size={14} />
+                <div className={`${data.isCompact ? 'w-6 h-6' : 'w-8 h-8'} rounded-full border border-amber-400 flex items-center justify-center text-amber-400`}>
+                   <Globe size={data.isCompact ? 12 : 14} />
                 </div>
-                <Editable text="www.reallygreatsite.com" onSave={() => {}} />
+                <Editable text={data.website || 'www.reallygreatsite.com'} onSave={(val) => onUpdate({ website: val })} />
              </div>
           </div>
        </section>
 
        {/* Skills */}
-       <section className="mb-10">
-          <div className="bg-white text-slate-800 rounded-full px-6 py-2 inline-flex items-center space-x-2 mb-6">
+       <section className={data.isCompact ? 'mb-6' : 'mb-10'}>
+          <div className={`bg-white text-slate-800 rounded-full px-6 py-2 inline-flex items-center space-x-2 ${data.isCompact ? 'mb-3' : 'mb-6'}`}>
              <div className="w-2 h-2 bg-slate-800 rounded-full"></div>
              <Editable text={data.sections?.skills || 'Compéte'} className="font-bold uppercase tracking-widest text-sm" onSave={(val) => onUpdate({ sections: { ...data.sections!, skills: val } })} />
           </div>
-          <div className="space-y-3">
+          <div className="space-y-2">
              {data.skills.slice(0, 6).map((skill, i) => (
                 <div key={i} className="flex justify-between items-center">
-                   <Editable text={skill} className="text-sm" onSave={(val) => {
+                   <Editable text={skill} className={data.isCompact ? 'text-xs' : 'text-sm'} onSave={(val) => {
                       const newSkills = [...data.skills];
                       newSkills[i] = val;
                       onUpdate({ skills: newSkills });
                    }} />
                    <div className="flex space-x-0.5 text-amber-400">
                       {[1, 2, 3, 4, 5].map(star => (
-                         <Star key={star} size={10} fill={star <= 4 ? "currentColor" : "none"} />
+                         <Star key={star} size={data.isCompact ? 8 : 10} fill={star <= 4 ? "currentColor" : "none"} />
                       ))}
                    </div>
                 </div>
@@ -962,18 +1169,71 @@ const ClassicTemplate = ({ data, onUpdate }: { data: CVData, onUpdate: (d: Parti
           </div>
        </section>
 
+        {/* Qualities & Flaws */}
+        {(data.qualities.length > 0 || data.flaws.length > 0) && (
+          <section className={`${data.isCompact ? 'mb-6' : 'mb-10'} break-inside-avoid`}>
+            <div className={`bg-white text-slate-800 rounded-full px-6 py-2 inline-flex items-center space-x-2 ${data.isCompact ? 'mb-3' : 'mb-6'}`}>
+               <div className="w-2 h-2 bg-slate-800 rounded-full"></div>
+               <Editable text={data.sections?.qualities || 'Qualités & Défauts'} className="font-bold uppercase tracking-widest text-sm" onSave={(val) => onUpdate({ sections: { ...data.sections!, qualities: val } })} />
+            </div>
+            <div className="space-y-1">
+               {data.qualities.map((q, i) => (
+                  <div key={`q-${i}`} className={`flex items-center space-x-2 ${data.isCompact ? 'text-xs' : 'text-sm'}`}>
+                     <CheckCircle2 size={data.isCompact ? 10 : 12} className="text-amber-400" />
+                     <Editable text={q} onSave={(val) => {
+                        const newQ = [...data.qualities];
+                        newQ[i] = val;
+                        onUpdate({ qualities: newQ });
+                     }} />
+                  </div>
+               ))}
+               {data.flaws.map((f, i) => (
+                  <div key={`f-${i}`} className={`flex items-center space-x-2 ${data.isCompact ? 'text-xs' : 'text-sm'} text-white/60`}>
+                     <AlertCircle size={data.isCompact ? 10 : 12} />
+                     <Editable text={f} onSave={(val) => {
+                        const newF = [...data.flaws];
+                        newF[i] = val;
+                        onUpdate({ flaws: newF });
+                     }} />
+                  </div>
+               ))}
+            </div>
+          </section>
+        )}
+
        {/* Languages */}
-       <section>
-          <div className="bg-white text-slate-800 rounded-full px-6 py-2 inline-flex items-center space-x-2 mb-6">
+       <section className={data.isCompact ? 'mb-6' : 'mb-10'}>
+          <div className={`bg-white text-slate-800 rounded-full px-6 py-2 inline-flex items-center space-x-2 ${data.isCompact ? 'mb-3' : 'mb-6'}`}>
              <div className="w-2 h-2 bg-slate-800 rounded-full"></div>
-             <Editable text="Langue" className="font-bold uppercase tracking-widest text-sm" onSave={() => {}} />
+             <Editable text={data.sections?.languages || 'Langues'} className="font-bold uppercase tracking-widest text-sm" onSave={(val) => onUpdate({ sections: { ...data.sections!, languages: val } })} />
           </div>
-          <ul className="space-y-2 text-sm list-disc list-inside">
+          <ul className={`space-y-1 ${data.isCompact ? 'text-xs' : 'text-sm'} list-disc list-inside`}>
              <li>Anglais</li>
              <li>Allemand</li>
-             <li>France</li>
+             <li>Français</li>
           </ul>
        </section>
+
+       {/* Interests */}
+       {data.interests.length > 0 && (
+         <section className={data.isCompact ? 'mb-6' : 'mb-10'}>
+           <div className={`bg-white text-slate-800 rounded-full px-6 py-2 inline-flex items-center space-x-2 ${data.isCompact ? 'mb-3' : 'mb-6'}`}>
+              <div className="w-2 h-2 bg-slate-800 rounded-full"></div>
+              <Editable text={data.sections?.interests || 'Intérêts'} className="font-bold uppercase tracking-widest text-sm" onSave={(val) => onUpdate({ sections: { ...data.sections!, interests: val } })} />
+           </div>
+           <ul className={`space-y-1 ${data.isCompact ? 'text-xs' : 'text-sm'} list-disc list-inside`}>
+              {data.interests.map((interest, i) => (
+                <li key={i}>
+                  <Editable text={interest} onSave={(val) => {
+                    const newInterests = [...data.interests];
+                    newInterests[i] = val;
+                    onUpdate({ interests: newInterests });
+                  }} />
+                </li>
+              ))}
+           </ul>
+         </section>
+       )}
 
        {/* Geometric shapes footer sidebar */}
        <div className="mt-auto relative h-32 -mx-8 -mb-8 overflow-hidden">
@@ -983,43 +1243,47 @@ const ClassicTemplate = ({ data, onUpdate }: { data: CVData, onUpdate: (d: Parti
     </div>
 
     {/* Main Content */}
-    <div className="w-2/3 p-12 flex flex-col relative">
-       {/* Photo */}
-       {data.photo && (
-          <div className="absolute top-8 right-8 w-48 h-56 overflow-hidden rounded-3xl shadow-2xl rotate-3">
-             <img src={data.photo} alt="Profile" className="w-full h-full object-cover -rotate-3 scale-110" />
-          </div>
-       )}
-
+    <div className="w-[65%] p-8 flex flex-col relative">
        {/* Sections */}
-       <div className="mt-48 space-y-12">
-          {/* Profile */}
-          <section>
-             <div className="bg-amber-400 text-slate-800 rounded-full px-8 py-2 inline-flex items-center space-x-2 mb-6">
-                <div className="w-2 h-2 bg-slate-800 rounded-full"></div>
-                <Editable text={data.sections?.profile || 'Profil'} className="font-bold uppercase tracking-widest text-sm" onSave={(val) => onUpdate({ sections: { ...data.sections!, profile: val } })} />
+       <div className={`${data.isCompact ? 'mt-4' : 'mt-8'} ${data.isCompact ? 'space-y-6' : 'space-y-12'}`}>
+          {/* Profile & Photo Header */}
+          <div className="flex justify-between items-start gap-6">
+             <div className="flex-1">
+                {/* Profile */}
+                <section className="break-inside-avoid">
+                   <div className={`bg-amber-400 text-slate-800 rounded-full px-8 py-2 inline-flex items-center space-x-2 ${data.isCompact ? 'mb-3' : 'mb-6'}`}>
+                      <div className="w-2 h-2 bg-slate-800 rounded-full"></div>
+                      <Editable text={data.sections?.profile || 'Profil'} className="font-bold uppercase tracking-widest text-sm" onSave={(val) => onUpdate({ sections: { ...data.sections!, profile: val } })} />
+                   </div>
+                   <Editable text={data.profile} multiline className={`${data.isCompact ? 'text-xs' : 'text-sm'} leading-relaxed text-slate-600`} onSave={(val) => onUpdate({ profile: val })} />
+                </section>
              </div>
-             <Editable text={data.profile} multiline className="text-sm leading-relaxed text-slate-600" onSave={(val) => onUpdate({ profile: val })} />
-          </section>
+             
+             {data.photo && (
+                <div className={`${data.isCompact ? 'w-32 h-40' : 'w-44 h-52'} flex-shrink-0 overflow-hidden rounded-3xl shadow-xl border-4 border-white`}>
+                   <img src={data.photo} alt="Profile" className="w-full h-full object-cover" />
+                </div>
+             )}
+          </div>
 
           {/* Experience */}
-          <section>
-             <div className="bg-amber-400 text-slate-800 rounded-full px-8 py-2 inline-flex items-center space-x-2 mb-6">
+          <section className="break-inside-avoid">
+             <div className={`bg-amber-400 text-slate-800 rounded-full px-8 py-2 inline-flex items-center space-x-2 ${data.isCompact ? 'mb-3' : 'mb-6'}`}>
                 <div className="w-2 h-2 bg-slate-800 rounded-full"></div>
                 <Editable text={data.sections?.experiences || 'Expérience professionnelle'} className="font-bold uppercase tracking-widest text-sm" onSave={(val) => onUpdate({ sections: { ...data.sections!, experiences: val } })} />
              </div>
-             <div className="space-y-8">
+             <div className={data.isCompact ? 'space-y-4' : 'space-y-8'}>
                 {data.experiences.map((exp, i) => (
                    <div key={i}>
                       <div className="flex justify-between items-baseline mb-1">
                          <div className="font-bold text-slate-800">
-                            <Editable text={exp.position} onSave={(val) => {
+                            <Editable text={exp.position} className={data.isCompact ? 'text-sm' : ''} onSave={(val) => {
                                const newExp = [...data.experiences];
                                newExp[i].position = val;
                                onUpdate({ experiences: newExp });
                             }} />
                             <span className="mx-2 text-slate-300">|</span>
-                            <Editable text={exp.company} className="text-slate-500" onSave={(val) => {
+                            <Editable text={exp.company} className={`text-slate-500 ${data.isCompact ? 'text-xs' : ''}`} onSave={(val) => {
                                const newExp = [...data.experiences];
                                newExp[i].company = val;
                                onUpdate({ experiences: newExp });
@@ -1039,7 +1303,7 @@ const ClassicTemplate = ({ data, onUpdate }: { data: CVData, onUpdate: (d: Parti
                             }} />
                          </div>
                       </div>
-                      <Editable text={exp.description} multiline className="text-sm text-slate-600 leading-relaxed list-disc list-inside" onSave={(val) => {
+                      <Editable text={exp.description} multiline className={`${data.isCompact ? 'text-xs' : 'text-sm'} text-slate-600 leading-relaxed list-disc list-inside`} onSave={(val) => {
                          const newExp = [...data.experiences];
                          newExp[i].description = val;
                          onUpdate({ experiences: newExp });
@@ -1050,16 +1314,16 @@ const ClassicTemplate = ({ data, onUpdate }: { data: CVData, onUpdate: (d: Parti
           </section>
 
           {/* Education */}
-          <section>
-             <div className="bg-amber-400 text-slate-800 rounded-full px-8 py-2 inline-flex items-center space-x-2 mb-6">
+          <section className="break-inside-avoid">
+             <div className={`bg-amber-400 text-slate-800 rounded-full px-8 py-2 inline-flex items-center space-x-2 ${data.isCompact ? 'mb-3' : 'mb-6'}`}>
                 <div className="w-2 h-2 bg-slate-800 rounded-full"></div>
                 <Editable text={data.sections?.education || 'Éducation'} className="font-bold uppercase tracking-widest text-sm" onSave={(val) => onUpdate({ sections: { ...data.sections!, education: val } })} />
              </div>
-             <div className="space-y-6">
+             <div className={data.isCompact ? 'space-y-3' : 'space-y-6'}>
                 {data.education.map((edu, i) => (
                    <div key={i}>
                       <div className="flex justify-between items-baseline mb-1">
-                         <Editable text={edu.degree} className="font-bold text-slate-800" onSave={(val) => {
+                         <Editable text={edu.degree} className={`font-bold text-slate-800 ${data.isCompact ? 'text-sm' : ''}`} onSave={(val) => {
                             const newEdu = [...data.education];
                             newEdu[i].degree = val;
                             onUpdate({ education: newEdu });
@@ -1070,7 +1334,7 @@ const ClassicTemplate = ({ data, onUpdate }: { data: CVData, onUpdate: (d: Parti
                             onUpdate({ education: newEdu });
                          }} />
                       </div>
-                      <Editable text={edu.school} className="text-sm text-slate-500" onSave={(val) => {
+                      <Editable text={edu.school} className={`${data.isCompact ? 'text-xs' : 'text-sm'} text-slate-500`} onSave={(val) => {
                          const newEdu = [...data.education];
                          newEdu[i].school = val;
                          onUpdate({ education: newEdu });
@@ -1078,6 +1342,20 @@ const ClassicTemplate = ({ data, onUpdate }: { data: CVData, onUpdate: (d: Parti
                    </div>
                 ))}
              </div>
+          </section>
+
+          {/* References */}
+          <section className="break-inside-avoid mt-8">
+             <div className={`bg-amber-400 text-slate-800 rounded-full px-8 py-2 inline-flex items-center space-x-2 ${data.isCompact ? 'mb-3' : 'mb-6'}`}>
+                <div className="w-2 h-2 bg-slate-800 rounded-full"></div>
+                <Editable text={data.sections?.references || 'Références'} className="font-bold uppercase tracking-widest text-sm" onSave={(val) => onUpdate({ sections: { ...data.sections!, references: val } })} />
+             </div>
+             <Editable 
+               text={data.references || ''} 
+               multiline 
+               className={`${data.isCompact ? 'text-xs' : 'text-sm'} text-slate-600 leading-relaxed whitespace-pre-line`} 
+               onSave={(val) => onUpdate({ references: val })} 
+             />
           </section>
        </div>
 
@@ -1090,12 +1368,12 @@ const ClassicTemplate = ({ data, onUpdate }: { data: CVData, onUpdate: (d: Parti
 );
 
 const CreativeTemplate = ({ data, onUpdate }: { data: CVData, onUpdate: (d: Partial<CVData>) => void }) => (
-  <div className="min-h-[1123px] w-[794px] font-sans text-slate-800 bg-slate-50 relative overflow-hidden">
-    <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full -mr-32 -mt-32"></div>
-    <div className="absolute bottom-0 left-0 w-96 h-96 bg-emerald-50 rounded-full -ml-48 -mb-48"></div>
+  <div className={`cv-container cv-content-auto min-h-[297mm] w-[210mm] font-sans text-slate-800 bg-slate-50 relative shadow-2xl mx-auto ${data.isCompact ? 'cv-compact' : ''}`}>
+    <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full -mr-32 -mt-32 no-print"></div>
+    <div className="absolute bottom-0 left-0 w-96 h-96 bg-emerald-50 rounded-full -ml-48 -mb-48 no-print"></div>
 
-    <div className="relative z-10 p-12">
-      <header className="flex items-center space-x-8 mb-16">
+    <div className="relative z-10 p-10">
+      <header className="flex items-center space-x-8 mb-8">
         {data.photo && (
           <div className="w-40 h-40 rounded-full overflow-hidden border-8 border-white shadow-2xl">
             <img src={data.photo} alt="Profile" className="w-full h-full object-cover" />
@@ -1120,7 +1398,7 @@ const CreativeTemplate = ({ data, onUpdate }: { data: CVData, onUpdate: (d: Part
 
       <div className="grid grid-cols-12 gap-12">
         <div className="col-span-8 space-y-12">
-          <section>
+          <section className="break-inside-avoid">
             <Editable 
               text={data.sections?.experiences || 'MON PARCOURS'} 
               className="text-2xl font-black text-slate-900 mb-6 flex items-center" 
@@ -1164,7 +1442,7 @@ const CreativeTemplate = ({ data, onUpdate }: { data: CVData, onUpdate: (d: Part
             </div>
           </section>
 
-          <section>
+          <section className="break-inside-avoid">
             <Editable 
               text={data.sections?.education || 'FORMATION'} 
               className="text-2xl font-black text-slate-900 mb-6 flex items-center" 
@@ -1243,6 +1521,44 @@ const CreativeTemplate = ({ data, onUpdate }: { data: CVData, onUpdate: (d: Part
             </div>
           </section>
 
+          <section className="break-inside-avoid">
+            <Editable 
+              text={data.sections?.qualities || 'QUALITÉS & DÉFAUTS'} 
+              className="text-sm font-black uppercase tracking-widest mb-4" 
+              onSave={(val) => onUpdate({ sections: { ...data.sections!, qualities: val } })} 
+            />
+            <div className="space-y-2">
+              {data.qualities.map((q, i) => (
+                <div key={`q-${i}`} className="flex items-center space-x-2">
+                  <div className="w-1.5 h-1.5 bg-primary rounded-full"></div>
+                  <Editable 
+                    text={q} 
+                    className="text-xs font-bold text-slate-700" 
+                    onSave={(val) => {
+                      const newQ = [...data.qualities];
+                      newQ[i] = val;
+                      onUpdate({ qualities: newQ });
+                    }} 
+                  />
+                </div>
+              ))}
+              {data.flaws.map((f, i) => (
+                <div key={`f-${i}`} className="flex items-center space-x-2 opacity-60">
+                  <div className="w-1.5 h-1.5 bg-slate-400 rounded-full"></div>
+                  <Editable 
+                    text={f} 
+                    className="text-xs font-medium text-slate-500" 
+                    onSave={(val) => {
+                      const newF = [...data.flaws];
+                      newF[i] = val;
+                      onUpdate({ flaws: newF });
+                    }} 
+                  />
+                </div>
+              ))}
+            </div>
+          </section>
+
           <section>
             <Editable 
               text={data.sections?.interests || 'Loisirs'} 
@@ -1264,8 +1580,683 @@ const CreativeTemplate = ({ data, onUpdate }: { data: CVData, onUpdate: (d: Part
               ))}
             </div>
           </section>
+
+          <section>
+            <Editable 
+              text={data.sections?.references || 'Références'} 
+              className="text-sm font-black uppercase tracking-widest mb-4" 
+              onSave={(val) => onUpdate({ sections: { ...data.sections!, references: val } })} 
+            />
+            <Editable 
+              text={data.references || ''} 
+              multiline 
+              className="text-xs text-slate-600 leading-relaxed whitespace-pre-line" 
+              onSave={(val) => onUpdate({ references: val })} 
+            />
+          </section>
         </div>
       </div>
+    </div>
+  </div>
+);
+
+const BlueTemplate = ({ data, onUpdate }: { data: CVData, onUpdate: (d: Partial<CVData>) => void }) => (
+  <div className={`cv-container cv-content-auto min-h-[297mm] w-[210mm] font-sans text-slate-900 bg-white flex relative shadow-2xl mx-auto ${data.isCompact ? 'cv-compact' : ''}`}>
+    <div className="w-[35%] bg-[#2d4a63] text-white p-8 flex flex-col">
+       <div className="mb-8 flex justify-center">
+          <div className="w-40 h-40 rounded-full border-8 border-[#2d4a63] shadow-xl overflow-hidden bg-white">
+             {data.photo ? (
+                <img src={data.photo} alt="Profile" className="w-full h-full object-cover" />
+             ) : (
+                <div className="w-full h-full flex items-center justify-center bg-slate-200 text-slate-400">
+                   <Maximize2 size={48} />
+                </div>
+             )}
+          </div>
+       </div>
+       <section className="mb-10">
+          <h2 className="text-lg font-bold uppercase tracking-widest border-b border-white/20 pb-2 mb-4">
+             <Editable text={data.sections?.education || 'Education'} onSave={(val) => onUpdate({ sections: { ...data.sections!, education: val } })} />
+          </h2>
+          <div className="space-y-4">
+             {data.education.map((edu, i) => (
+                <div key={i}>
+                   <Editable text={edu.school} className="font-bold block" onSave={(val) => {
+                      const newEdu = [...data.education];
+                      newEdu[i].school = val;
+                      onUpdate({ education: newEdu });
+                   }} />
+                   <div className="text-xs opacity-80 mb-1">
+                      <Editable text={edu.year} onSave={(val) => {
+                         const newEdu = [...data.education];
+                         newEdu[i].year = val;
+                         onUpdate({ education: newEdu });
+                      }} />
+                   </div>
+                   <Editable text={edu.degree} className="text-sm italic" onSave={(val) => {
+                      const newEdu = [...data.education];
+                      newEdu[i].degree = val;
+                      onUpdate({ education: newEdu });
+                   }} />
+                </div>
+             ))}
+          </div>
+       </section>
+       <section className="mb-10">
+          <h2 className="text-lg font-bold uppercase tracking-widest border-b border-white/20 pb-2 mb-4">
+             <Editable text={data.sections?.skills || 'Skills'} onSave={(val) => onUpdate({ sections: { ...data.sections!, skills: val } })} />
+          </h2>
+          <div className="space-y-3">
+             {data.skills.map((skill, i) => (
+                <div key={i}>
+                   <div className="flex justify-between text-xs uppercase font-bold mb-1">
+                      <Editable text={skill} onSave={(val) => {
+                         const newSkills = [...data.skills];
+                         newSkills[i] = val;
+                         onUpdate({ skills: newSkills });
+                      }} />
+                   </div>
+                   <div className="h-1.5 bg-white/20 rounded-full overflow-hidden">
+                      <div className="h-full bg-white rounded-full" style={{ width: '80%' }}></div>
+                   </div>
+                </div>
+             ))}
+          </div>
+       </section>
+       <section className="mt-auto">
+          <h2 className="text-lg font-bold uppercase tracking-widest border-b border-white/20 pb-2 mb-4">
+             <Editable text={data.sections?.contact || 'Contact'} onSave={(val) => onUpdate({ sections: { ...data.sections!, contact: val } })} />
+          </h2>
+          <div className="space-y-3 text-sm">
+             <div className="flex items-center space-x-3">
+                <Phone size={14} className="text-white/60" />
+                <Editable text={data.phone} onSave={(val) => onUpdate({ phone: val })} />
+             </div>
+             <div className="flex items-center space-x-3">
+                <Mail size={14} className="text-white/60" />
+                <Editable text={data.email} onSave={(val) => onUpdate({ email: val })} />
+             </div>
+             <div className="flex items-center space-x-3">
+                <MapPin size={14} className="text-white/60" />
+                <Editable text={data.sections?.address || 'Address'} onSave={(val) => onUpdate({ sections: { ...data.sections!, address: val } })} />
+             </div>
+          </div>
+       </section>
+    </div>
+    <div className="w-[65%] p-12 flex flex-col">
+       <div className="mb-12">
+          <h1 className="text-5xl font-black text-[#2d4a63] leading-tight mb-2">
+             <Editable text={data.firstName} onSave={(val) => onUpdate({ firstName: val })} />
+             <br />
+             <Editable text={data.lastName} onSave={(val) => onUpdate({ lastName: val })} />
+          </h1>
+          <Editable text={data.jobTitle || 'Graphic Designer'} className="text-xl font-bold tracking-[0.2em] uppercase text-slate-800" onSave={(val) => onUpdate({ jobTitle: val })} />
+       </div>
+       <section className="mb-10">
+          <div className="bg-[#2d4a63] text-white px-6 py-2 rounded-r-full -ml-12 mb-6 inline-block">
+             <Editable text={data.sections?.profile || 'Profil'} className="font-bold uppercase tracking-widest" onSave={(val) => onUpdate({ sections: { ...data.sections!, profile: val } })} />
+          </div>
+          <Editable text={data.profile} multiline className="text-sm leading-relaxed text-slate-600" onSave={(val) => onUpdate({ profile: val })} />
+       </section>
+       <section className="mb-10">
+          <div className="bg-[#2d4a63] text-white px-6 py-2 rounded-r-full -ml-12 mb-6 inline-block">
+             <Editable text={data.sections?.experiences || 'Expériences'} className="font-bold uppercase tracking-widest" onSave={(val) => onUpdate({ sections: { ...data.sections!, experiences: val } })} />
+          </div>
+          <div className="space-y-8">
+             {data.experiences.map((exp, i) => (
+                <div key={i} className="relative pl-6 border-l-2 border-slate-100">
+                   <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-[#2d4a63]"></div>
+                   <div className="flex justify-between items-baseline mb-1">
+                      <Editable text={exp.position} className="font-bold text-slate-800 uppercase" onSave={(val) => {
+                         const newExp = [...data.experiences];
+                         newExp[i].position = val;
+                         onUpdate({ experiences: newExp });
+                      }} />
+                      <div className="text-xs font-bold text-slate-400">
+                         <Editable text={exp.startDate} onSave={(val) => {
+                            const newExp = [...data.experiences];
+                            newExp[i].startDate = val;
+                            onUpdate({ experiences: newExp });
+                         }} />
+                         <span> / </span>
+                         <Editable text={exp.endDate} onSave={(val) => {
+                            const newExp = [...data.experiences];
+                            newExp[i].endDate = val;
+                            onUpdate({ experiences: newExp });
+                         }} />
+                      </div>
+                   </div>
+                   <Editable text={exp.company} className="text-sm font-bold text-[#2d4a63] mb-2 block" onSave={(val) => {
+                      const newExp = [...data.experiences];
+                      newExp[i].company = val;
+                      onUpdate({ experiences: newExp });
+                   }} />
+                   <Editable text={exp.description} multiline className="text-sm text-slate-600 leading-relaxed" onSave={(val) => {
+                      const newExp = [...data.experiences];
+                      newExp[i].description = val;
+                      onUpdate({ experiences: newExp });
+                   }} />
+                </div>
+             ))}
+          </div>
+       </section>
+       <section>
+          <div className="bg-[#2d4a63] text-white px-6 py-2 rounded-r-full -ml-12 mb-6 inline-block">
+             <Editable text={data.sections?.references || 'Références'} className="font-bold uppercase tracking-widest" onSave={(val) => onUpdate({ sections: { ...data.sections!, references: val } })} />
+          </div>
+          <Editable 
+            text={data.references || ''} 
+            multiline 
+            className="text-sm text-slate-600 leading-relaxed whitespace-pre-line" 
+            onSave={(val) => onUpdate({ references: val })} 
+          />
+       </section>
+    </div>
+  </div>
+);
+
+const PinkTemplate = ({ data, onUpdate }: { data: CVData, onUpdate: (d: Partial<CVData>) => void }) => (
+  <div className={`cv-container cv-content-auto min-h-[297mm] w-[210mm] font-sans text-slate-900 bg-white relative shadow-2xl mx-auto overflow-hidden ${data.isCompact ? 'cv-compact' : ''}`}>
+    <div className="absolute top-0 right-0 w-1/2 h-64 bg-[#e8b4b8] -skew-y-12 origin-top-right -z-0"></div>
+    <div className="absolute top-48 left-0 w-1/3 h-32 bg-[#e8b4b8]/20 skew-y-12 origin-top-left -z-0"></div>
+    <div className="relative z-10 flex h-full min-h-[297mm]">
+       <div className="w-[40%] p-10 flex flex-col">
+          <div className="mb-12">
+             <h1 className="text-4xl font-black text-slate-800 leading-tight uppercase">
+                <Editable text={data.firstName} onSave={(val) => onUpdate({ firstName: val })} />
+                <br />
+                <Editable text={data.lastName} onSave={(val) => onUpdate({ lastName: val })} />
+             </h1>
+             <Editable text={data.jobTitle || 'Graphic Designer'} className="text-lg italic text-slate-500" onSave={(val) => onUpdate({ jobTitle: val })} />
+          </div>
+          <section className="mb-10">
+             <h2 className="text-2xl font-black text-slate-800 mb-4">
+                <Editable text={data.sections?.profile || 'Profil'} onSave={(val) => onUpdate({ sections: { ...data.sections!, profile: val } })} />
+             </h2>
+             <Editable text={data.profile} multiline className="text-sm leading-relaxed text-slate-600" onSave={(val) => onUpdate({ profile: val })} />
+          </section>
+          <section className="mb-10">
+             <h2 className="text-2xl font-black text-slate-800 mb-4">
+                <Editable text={data.sections?.contact || 'Contact'} onSave={(val) => onUpdate({ sections: { ...data.sections!, contact: val } })} />
+             </h2>
+             <div className="space-y-2 text-sm text-slate-600">
+                <div className="flex items-center space-x-2">
+                   <span className="w-1.5 h-1.5 rounded-full bg-[#e8b4b8]"></span>
+                   <Editable text={data.phone} onSave={(val) => onUpdate({ phone: val })} />
+                </div>
+                <div className="flex items-center space-x-2">
+                   <span className="w-1.5 h-1.5 rounded-full bg-[#e8b4b8]"></span>
+                   <Editable text={data.email} onSave={(val) => onUpdate({ email: val })} />
+                </div>
+                <div className="flex items-center space-x-2">
+                   <span className="w-1.5 h-1.5 rounded-full bg-[#e8b4b8]"></span>
+                   <Editable text={data.sections?.address || 'Adresse'} onSave={(val) => onUpdate({ sections: { ...data.sections!, address: val } })} />
+                </div>
+             </div>
+          </section>
+          <section className="mb-10">
+             <h2 className="text-2xl font-black text-slate-800 mb-4">
+                <Editable text={data.sections?.education || 'Formation'} onSave={(val) => onUpdate({ sections: { ...data.sections!, education: val } })} />
+             </h2>
+             <div className="space-y-6">
+                {data.education.map((edu, i) => (
+                   <div key={i} className="relative pl-4 border-l border-[#e8b4b8]">
+                      <div className="absolute -left-1.5 top-0 w-3 h-3 rotate-45 bg-[#e8b4b8]"></div>
+                      <div className="text-sm font-bold text-slate-400 mb-1">
+                         <Editable text={edu.year} onSave={(val) => {
+                            const newEdu = [...data.education];
+                            newEdu[i].year = val;
+                            onUpdate({ education: newEdu });
+                         }} />
+                      </div>
+                      <Editable text={edu.school} className="text-sm font-bold text-slate-700 block" onSave={(val) => {
+                         const newEdu = [...data.education];
+                         newEdu[i].school = val;
+                         onUpdate({ education: newEdu });
+                      }} />
+                      <Editable text={edu.degree} className="text-xs text-slate-500" onSave={(val) => {
+                         const newEdu = [...data.education];
+                         newEdu[i].degree = val;
+                         onUpdate({ education: newEdu });
+                      }} />
+                   </div>
+                ))}
+             </div>
+          </section>
+       </div>
+       <div className="w-[60%] p-10 flex flex-col">
+          <div className="flex justify-end mb-12">
+             <div className="w-56 h-56 rounded-full border-[12px] border-white shadow-2xl overflow-hidden bg-slate-100">
+                {data.photo ? (
+                   <img src={data.photo} alt="Profile" className="w-full h-full object-cover" />
+                ) : (
+                   <div className="w-full h-full flex items-center justify-center text-slate-300">
+                      <Maximize2 size={64} />
+                   </div>
+                )}
+             </div>
+          </div>
+          <section className="mb-10">
+             <h2 className="text-2xl font-black text-slate-800 mb-6">
+                <Editable text={data.sections?.experiences || 'Expériences'} onSave={(val) => onUpdate({ sections: { ...data.sections!, experiences: val } })} />
+             </h2>
+             <div className="space-y-8">
+                {data.experiences.map((exp, i) => (
+                   <div key={i} className="relative pl-6 border-l border-dashed border-[#e8b4b8]">
+                      <div className="absolute -left-1.5 top-0 w-3 h-3 rotate-45 bg-[#e8b4b8]"></div>
+                      <div className="flex justify-between items-baseline mb-1">
+                         <Editable text={exp.company} className="font-bold text-slate-700" onSave={(val) => {
+                            const newExp = [...data.experiences];
+                            newExp[i].company = val;
+                            onUpdate({ experiences: newExp });
+                         }} />
+                         <div className="text-xs font-bold text-slate-400">
+                            <Editable text={exp.startDate} onSave={(val) => {
+                               const newExp = [...data.experiences];
+                               newExp[i].startDate = val;
+                               onUpdate({ experiences: newExp });
+                            }} />
+                            <span>-</span>
+                            <Editable text={exp.endDate} onSave={(val) => {
+                               const newExp = [...data.experiences];
+                               newExp[i].endDate = val;
+                               onUpdate({ experiences: newExp });
+                            }} />
+                         </div>
+                      </div>
+                      <Editable text={exp.position} className="text-sm italic text-slate-500 mb-2 block" onSave={(val) => {
+                         const newExp = [...data.experiences];
+                         newExp[i].position = val;
+                         onUpdate({ experiences: newExp });
+                      }} />
+                      <Editable text={exp.description} multiline className="text-xs text-slate-600 leading-relaxed list-disc list-inside" onSave={(val) => {
+                         const newExp = [...data.experiences];
+                         newExp[i].description = val;
+                         onUpdate({ experiences: newExp });
+                      }} />
+                   </div>
+                ))}
+             </div>
+          </section>
+          <section className="mb-10">
+             <h2 className="text-2xl font-black text-slate-800 mb-4">
+                <Editable text={data.sections?.skills || 'Compétences'} onSave={(val) => onUpdate({ sections: { ...data.sections!, skills: val } })} />
+             </h2>
+             <div className="grid grid-cols-1 gap-3">
+                {data.skills.map((skill, i) => (
+                   <div key={i} className="flex items-center justify-between">
+                      <Editable text={skill} className="text-sm text-slate-700" onSave={(val) => {
+                         const newSkills = [...data.skills];
+                         newSkills[i] = val;
+                         onUpdate({ skills: newSkills });
+                      }} />
+                      <div className="w-32 h-2 bg-slate-100 rounded-full overflow-hidden">
+                         <div className="h-full bg-[#e8b4b8]" style={{ width: '70%' }}></div>
+                      </div>
+                   </div>
+                ))}
+             </div>
+          </section>
+          <section className="mb-10">
+             <h2 className="text-2xl font-black text-slate-800 mb-4">
+                <Editable text={data.sections?.references || 'Références'} onSave={(val) => onUpdate({ sections: { ...data.sections!, references: val } })} />
+             </h2>
+             <Editable 
+               text={data.references || ''} 
+               multiline 
+               className="text-sm text-slate-600 leading-relaxed whitespace-pre-line" 
+               onSave={(val) => onUpdate({ references: val })} 
+             />
+          </section>
+          <section>
+             <h2 className="text-2xl font-black text-slate-800 mb-4">Langues</h2>
+             <div className="grid grid-cols-1 gap-3">
+                {['English', 'Chinese', 'Portuguese', 'French'].map((lang, i) => (
+                   <div key={i} className="flex items-center justify-between">
+                      <span className="text-sm text-slate-700">{lang}</span>
+                      <div className="flex space-x-1">
+                         {[1, 2, 3, 4, 5].map(dot => (
+                            <div key={dot} className={`w-6 h-1.5 rounded-full ${dot <= 4 - i ? 'bg-[#e8b4b8]' : 'bg-slate-100'}`}></div>
+                         ))}
+                      </div>
+                   </div>
+                ))}
+             </div>
+          </section>
+       </div>
+    </div>
+  </div>
+);
+
+const DarkTemplate = ({ data, onUpdate }: { data: CVData, onUpdate: (d: Partial<CVData>) => void }) => (
+  <div className={`cv-container cv-content-auto min-h-[297mm] w-[210mm] font-sans text-white bg-[#0f111a] p-8 shadow-2xl mx-auto ${data.isCompact ? 'cv-compact' : ''}`}>
+    <div className="bg-gradient-to-br from-[#1a1c2e] to-[#0f111a] rounded-[2rem] h-full p-10 border border-white/5 relative overflow-hidden">
+       <div className="absolute top-0 right-0 w-96 h-96 bg-purple-600/10 blur-[100px] -z-0"></div>
+       <div className="absolute bottom-0 left-0 w-96 h-96 bg-blue-600/10 blur-[100px] -z-0"></div>
+       <div className="relative z-10 flex flex-col h-full">
+          <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-3xl p-8 mb-8 flex justify-between items-center">
+             <div>
+                <h1 className="text-5xl font-black tracking-tight mb-2">
+                   <Editable text={data.firstName} onSave={(val) => onUpdate({ firstName: val })} />{' '}
+                   <Editable text={data.lastName} onSave={(val) => onUpdate({ lastName: val })} />
+                </h1>
+                <Editable text={data.jobTitle || 'UI/UX Designer'} className="text-xl text-purple-400 font-bold" onSave={(val) => onUpdate({ jobTitle: val })} />
+             </div>
+             <div className="text-right text-sm text-white/60 space-y-1">
+                <div className="flex items-center justify-end space-x-2">
+                   <Editable text={data.phone} onSave={(val) => onUpdate({ phone: val })} />
+                   <Phone size={14} />
+                </div>
+                <div className="flex items-center justify-end space-x-2">
+                   <Editable text={data.email} onSave={(val) => onUpdate({ email: val })} />
+                   <Mail size={14} />
+                </div>
+                <div className="flex items-center justify-end space-x-2">
+                   <Editable text={data.sections?.address || 'Address'} onSave={(val) => onUpdate({ sections: { ...data.sections!, address: val } })} />
+                   <MapPin size={14} />
+                </div>
+             </div>
+          </div>
+          <div className="flex gap-8 flex-1">
+             <div className="w-[35%] space-y-8">
+                <section className="bg-white/5 backdrop-blur-md border border-white/10 rounded-3xl p-6">
+                   <h2 className="text-sm font-black uppercase tracking-widest text-purple-400 mb-6 border-b border-white/10 pb-2">
+                      <Editable text={data.sections?.skills || 'Compétences'} onSave={(val) => onUpdate({ sections: { ...data.sections!, skills: val } })} />
+                   </h2>
+                   <div className="flex flex-wrap gap-2">
+                      {data.skills.map((skill, i) => (
+                         <div key={i} className="bg-white/5 border border-white/10 px-3 py-1.5 rounded-xl text-xs font-bold text-white/80">
+                            <Editable text={skill} onSave={(val) => {
+                               const newSkills = [...data.skills];
+                               newSkills[i] = val;
+                               onUpdate({ skills: newSkills });
+                            }} />
+                         </div>
+                      ))}
+                   </div>
+                </section>
+                <section className="bg-white/5 backdrop-blur-md border border-white/10 rounded-3xl p-6">
+                   <h2 className="text-sm font-black uppercase tracking-widest text-purple-400 mb-6 border-b border-white/10 pb-2">
+                      <Editable text={data.sections?.education || 'Formation'} onSave={(val) => onUpdate({ sections: { ...data.sections!, education: val } })} />
+                   </h2>
+                   <div className="space-y-6">
+                      {data.education.map((edu, i) => (
+                         <div key={i}>
+                            <Editable text={edu.degree} className="font-bold block text-white" onSave={(val) => {
+                               const newEdu = [...data.education];
+                               newEdu[i].degree = val;
+                               onUpdate({ education: newEdu });
+                            }} />
+                            <Editable text={edu.school} className="text-xs text-white/60 block" onSave={(val) => {
+                               const newEdu = [...data.education];
+                               newEdu[i].school = val;
+                               onUpdate({ education: newEdu });
+                            }} />
+                            <Editable text={edu.year} className="text-[10px] font-black text-purple-400 uppercase mt-1 block" onSave={(val) => {
+                               const newEdu = [...data.education];
+                               newEdu[i].year = val;
+                               onUpdate({ education: newEdu });
+                            }} />
+                         </div>
+                      ))}
+                   </div>
+                </section>
+                <section className="bg-white/5 backdrop-blur-md border border-white/10 rounded-3xl p-6">
+                   <h2 className="text-sm font-black uppercase tracking-widest text-purple-400 mb-6 border-b border-white/10 pb-2">Langues</h2>
+                   <div className="space-y-3 text-sm">
+                      <div className="flex justify-between">
+                         <span className="text-white/80">Anglais</span>
+                         <span className="text-purple-400 font-bold text-xs uppercase">Natif</span>
+                      </div>
+                      <div className="flex justify-between">
+                         <span className="text-white/80">Français</span>
+                         <span className="text-purple-400 font-bold text-xs uppercase">Courant</span>
+                      </div>
+                   </div>
+                </section>
+             </div>
+             <div className="w-[65%] space-y-8">
+                <section className="bg-white/5 backdrop-blur-md border border-white/10 rounded-3xl p-8">
+                   <h2 className="text-sm font-black uppercase tracking-widest text-purple-400 mb-6">
+                      <Editable text={data.sections?.profile || 'Profil'} onSave={(val) => onUpdate({ sections: { ...data.sections!, profile: val } })} />
+                   </h2>
+                   <Editable text={data.profile} multiline className="text-sm leading-relaxed text-white/70" onSave={(val) => onUpdate({ profile: val })} />
+                </section>
+                <section className="bg-white/5 backdrop-blur-md border border-white/10 rounded-3xl p-8 flex-1">
+                   <h2 className="text-sm font-black uppercase tracking-widest text-purple-400 mb-8">
+                      <Editable text={data.sections?.experiences || 'Expériences'} onSave={(val) => onUpdate({ sections: { ...data.sections!, experiences: val } })} />
+                   </h2>
+                   <div className="space-y-10">
+                      {data.experiences.map((exp, i) => (
+                         <div key={i} className="relative pl-8 border-l border-white/10">
+                            <div className="absolute -left-1.5 top-0 w-3 h-3 rounded-full bg-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.5)]"></div>
+                            <div className="flex justify-between items-start mb-2">
+                               <div>
+                                  <Editable text={exp.position} className="text-lg font-bold text-white block" onSave={(val) => {
+                                     const newExp = [...data.experiences];
+                                     newExp[i].position = val;
+                                     onUpdate({ experiences: newExp });
+                                  }} />
+                                  <Editable text={exp.company} className="text-sm font-bold text-purple-400 block" onSave={(val) => {
+                                     const newExp = [...data.experiences];
+                                     newExp[i].company = val;
+                                     onUpdate({ experiences: newExp });
+                                  }} />
+                               </div>
+                               <div className="bg-white/5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border border-white/10">
+                                  <Editable text={exp.startDate} onSave={(val) => {
+                                     const newExp = [...data.experiences];
+                                     newExp[i].startDate = val;
+                                     onUpdate({ experiences: newExp });
+                                  }} />
+                                  <span> - </span>
+                                  <Editable text={exp.endDate} onSave={(val) => {
+                                     const newExp = [...data.experiences];
+                                     newExp[i].endDate = val;
+                                     onUpdate({ experiences: newExp });
+                                  }} />
+                               </div>
+                            </div>
+                            <Editable text={exp.description} multiline className="text-xs text-white/50 leading-relaxed" onSave={(val) => {
+                               const newExp = [...data.experiences];
+                               newExp[i].description = val;
+                               onUpdate({ experiences: newExp });
+                            }} />
+                         </div>
+                      ))}
+                   </div>
+                </section>
+                <section className="bg-white/5 backdrop-blur-md border border-white/10 rounded-3xl p-8">
+                   <h2 className="text-sm font-black uppercase tracking-widest text-purple-400 mb-6">
+                      <Editable text={data.sections?.references || 'Références'} onSave={(val) => onUpdate({ sections: { ...data.sections!, references: val } })} />
+                   </h2>
+                   <Editable 
+                     text={data.references || ''} 
+                     multiline 
+                     className="text-xs text-white/50 leading-relaxed whitespace-pre-line" 
+                     onSave={(val) => onUpdate({ references: val })} 
+                   />
+                </section>
+             </div>
+          </div>
+       </div>
+    </div>
+  </div>
+);
+
+const OrangeTemplate = ({ data, onUpdate }: { data: CVData, onUpdate: (d: Partial<CVData>) => void }) => (
+  <div className={`cv-container cv-content-auto min-h-[297mm] w-[210mm] font-sans text-slate-900 bg-white relative shadow-2xl mx-auto overflow-hidden ${data.isCompact ? 'cv-compact' : ''}`}>
+    <div className="absolute top-0 right-0 w-1/2 h-64 bg-[#f27d26] -skew-y-12 origin-top-right -z-0"></div>
+    <div className="absolute top-10 right-10 w-64 h-64 border-[20px] border-white/20 rounded-full -z-0"></div>
+    <div className="absolute bottom-0 left-0 w-48 h-48 bg-[#f27d26] rounded-tr-[100px] -z-0"></div>
+    <div className="relative z-10 flex h-full min-h-[297mm]">
+       <div className="w-[40%] p-10 flex flex-col">
+          <div className="mb-12">
+             <h1 className="text-4xl font-black text-slate-800 leading-tight uppercase">
+                <Editable text={data.firstName} onSave={(val) => onUpdate({ firstName: val })} />
+                <br />
+                <Editable text={data.lastName} onSave={(val) => onUpdate({ lastName: val })} />
+             </h1>
+             <Editable text={data.jobTitle || 'Graphic Designer'} className="text-lg italic text-slate-500" onSave={(val) => onUpdate({ jobTitle: val })} />
+          </div>
+          <section className="mb-10">
+             <h2 className="text-2xl font-black text-slate-800 mb-4">
+                <Editable text={data.sections?.profile || 'Profil'} onSave={(val) => onUpdate({ sections: { ...data.sections!, profile: val } })} />
+             </h2>
+             <Editable text={data.profile} multiline className="text-sm leading-relaxed text-slate-600" onSave={(val) => onUpdate({ profile: val })} />
+          </section>
+          <section className="mb-10">
+             <h2 className="text-2xl font-black text-slate-800 mb-4">
+                <Editable text={data.sections?.contact || 'Contact'} onSave={(val) => onUpdate({ sections: { ...data.sections!, contact: val } })} />
+             </h2>
+             <div className="space-y-2 text-sm text-slate-600">
+                <div className="flex items-center space-x-2">
+                   <span className="w-1.5 h-1.5 rounded-full bg-[#f27d26]"></span>
+                   <Editable text={data.phone} onSave={(val) => onUpdate({ phone: val })} />
+                </div>
+                <div className="flex items-center space-x-2">
+                   <span className="w-1.5 h-1.5 rounded-full bg-[#f27d26]"></span>
+                   <Editable text={data.email} onSave={(val) => onUpdate({ email: val })} />
+                </div>
+                <div className="flex items-center space-x-2">
+                   <span className="w-1.5 h-1.5 rounded-full bg-[#f27d26]"></span>
+                   <Editable text={data.sections?.address || 'Adresse'} onSave={(val) => onUpdate({ sections: { ...data.sections!, address: val } })} />
+                </div>
+             </div>
+          </section>
+          <section className="mb-10">
+             <h2 className="text-2xl font-black text-slate-800 mb-4">
+                <Editable text={data.sections?.education || 'Formation'} onSave={(val) => onUpdate({ sections: { ...data.sections!, education: val } })} />
+             </h2>
+             <div className="space-y-6">
+                {data.education.map((edu, i) => (
+                   <div key={i} className="relative pl-4 border-l border-[#f27d26]">
+                      <div className="absolute -left-1.5 top-0 w-3 h-3 rotate-45 bg-[#f27d26]"></div>
+                      <div className="text-sm font-bold text-slate-400 mb-1">
+                         <Editable text={edu.year} onSave={(val) => {
+                            const newEdu = [...data.education];
+                            newEdu[i].year = val;
+                            onUpdate({ education: newEdu });
+                         }} />
+                      </div>
+                      <Editable text={edu.school} className="text-sm font-bold text-slate-700 block" onSave={(val) => {
+                         const newEdu = [...data.education];
+                         newEdu[i].school = val;
+                         onUpdate({ education: newEdu });
+                      }} />
+                      <Editable text={edu.degree} className="text-xs text-slate-500" onSave={(val) => {
+                         const newEdu = [...data.education];
+                         newEdu[i].degree = val;
+                         onUpdate({ education: newEdu });
+                      }} />
+                   </div>
+                ))}
+             </div>
+          </section>
+       </div>
+       <div className="w-[60%] p-10 flex flex-col">
+          <div className="flex justify-end mb-12">
+             <div className="relative">
+                <div className="absolute -top-4 -right-4 w-full h-full border-[10px] border-[#f27d26]/10 rounded-full"></div>
+                <div className="w-56 h-56 rounded-full border-[12px] border-white shadow-2xl overflow-hidden bg-slate-100 relative z-10">
+                   {data.photo ? (
+                      <img src={data.photo} alt="Profile" className="w-full h-full object-cover" />
+                   ) : (
+                      <div className="w-full h-full flex items-center justify-center text-slate-300">
+                         <Maximize2 size={64} />
+                      </div>
+                   )}
+                </div>
+             </div>
+          </div>
+          <section className="mb-10">
+             <h2 className="text-2xl font-black text-slate-800 mb-6">
+                <Editable text={data.sections?.experiences || 'Expériences'} onSave={(val) => onUpdate({ sections: { ...data.sections!, experiences: val } })} />
+             </h2>
+             <div className="space-y-8">
+                {data.experiences.map((exp, i) => (
+                   <div key={i} className="relative pl-6 border-l border-dashed border-[#f27d26]">
+                      <div className="absolute -left-1.5 top-0 w-3 h-3 rotate-45 bg-[#f27d26]"></div>
+                      <div className="flex justify-between items-baseline mb-1">
+                         <Editable text={exp.company} className="font-bold text-slate-700" onSave={(val) => {
+                            const newExp = [...data.experiences];
+                            newExp[i].company = val;
+                            onUpdate({ experiences: newExp });
+                         }} />
+                         <div className="text-xs font-bold text-slate-400">
+                            <Editable text={exp.startDate} onSave={(val) => {
+                               const newExp = [...data.experiences];
+                               newExp[i].startDate = val;
+                               onUpdate({ experiences: newExp });
+                            }} />
+                            <span>-</span>
+                            <Editable text={exp.endDate} onSave={(val) => {
+                               const newExp = [...data.experiences];
+                               newExp[i].endDate = val;
+                               onUpdate({ experiences: newExp });
+                            }} />
+                         </div>
+                      </div>
+                      <Editable text={exp.position} className="text-sm italic text-slate-500 mb-2 block" onSave={(val) => {
+                         const newExp = [...data.experiences];
+                         newExp[i].position = val;
+                         onUpdate({ experiences: newExp });
+                      }} />
+                      <Editable text={exp.description} multiline className="text-xs text-slate-600 leading-relaxed list-disc list-inside" onSave={(val) => {
+                         const newExp = [...data.experiences];
+                         newExp[i].description = val;
+                         onUpdate({ experiences: newExp });
+                      }} />
+                   </div>
+                ))}
+             </div>
+          </section>
+          <section className="mb-10">
+             <h2 className="text-2xl font-black text-slate-800 mb-4">
+                <Editable text={data.sections?.skills || 'Compétences'} onSave={(val) => onUpdate({ sections: { ...data.sections!, skills: val } })} />
+             </h2>
+             <div className="grid grid-cols-1 gap-3">
+                {data.skills.map((skill, i) => (
+                   <div key={i} className="flex items-center justify-between">
+                      <Editable text={skill} className="text-sm text-slate-700" onSave={(val) => {
+                         const newSkills = [...data.skills];
+                         newSkills[i] = val;
+                         onUpdate({ skills: newSkills });
+                      }} />
+                      <div className="w-32 h-2 bg-slate-100 rounded-full overflow-hidden">
+                         <div className="h-full bg-[#f27d26]" style={{ width: '70%' }}></div>
+                      </div>
+                   </div>
+                ))}
+             </div>
+          </section>
+          <section className="mb-10">
+             <h2 className="text-2xl font-black text-slate-800 mb-4">
+                <Editable text={data.sections?.references || 'Références'} onSave={(val) => onUpdate({ sections: { ...data.sections!, references: val } })} />
+             </h2>
+             <Editable 
+               text={data.references || ''} 
+               multiline 
+               className="text-sm text-slate-600 leading-relaxed whitespace-pre-line" 
+               onSave={(val) => onUpdate({ references: val })} 
+             />
+          </section>
+          <section>
+             <h2 className="text-2xl font-black text-slate-800 mb-4">Langues</h2>
+             <div className="grid grid-cols-1 gap-3">
+                {['English', 'Chinese', 'Portuguese', 'French'].map((lang, i) => (
+                   <div key={i} className="flex items-center justify-between">
+                      <span className="text-sm text-slate-700">{lang}</span>
+                      <div className="flex space-x-1">
+                         {[1, 2, 3, 4, 5].map(dot => (
+                            <div key={dot} className={`w-6 h-1.5 rounded-full ${dot <= 4 - i ? 'bg-[#f27d26]' : 'bg-slate-100'}`}></div>
+                         ))}
+                      </div>
+                   </div>
+                ))}
+             </div>
+          </section>
+       </div>
     </div>
   </div>
 );
