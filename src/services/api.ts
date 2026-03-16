@@ -14,6 +14,41 @@ import {
   setDoc
 } from 'firebase/firestore';
 
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId: string | undefined;
+    email: string | null | undefined;
+    emailVerified: boolean | undefined;
+  }
+}
+
+function handleFirestoreError(error: any, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+    },
+    operationType,
+    path
+  };
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
+
 // Client-side "Backend" using Firestore
 // This replaces all /api calls for a purely static deployment
 
@@ -44,11 +79,15 @@ export const api = {
     getProfile: async () => {
       const user = auth.currentUser;
       if (!user) return { ok: false } as any;
-      const userDoc = await getDoc(doc(db, 'users', user.uid));
-      return {
-        ok: true,
-        json: async () => userDoc.exists() ? userDoc.data() : { uid: user.uid, email: user.email }
-      } as any;
+      try {
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        return {
+          ok: true,
+          json: async () => userDoc.exists() ? userDoc.data() : { uid: user.uid, email: user.email }
+        } as any;
+      } catch (error) {
+        handleFirestoreError(error, OperationType.GET, `users/${user.uid}`);
+      }
     },
     forgotPassword: async (email: string) => {
       return { ok: true } as any;
@@ -70,10 +109,14 @@ export const api = {
     list: async () => {
       const user = auth.currentUser;
       if (!user) return { ok: true, json: async () => [] } as any;
-      const q = query(collection(db, 'cvs'), where('userId', '==', user.uid), orderBy('createdAt', 'desc'));
-      const snapshot = await getDocs(q);
-      const cvs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      return { ok: true, json: async () => cvs } as any;
+      try {
+        const q = query(collection(db, 'cvs'), where('userId', '==', user.uid), orderBy('createdAt', 'desc'));
+        const snapshot = await getDocs(q);
+        const cvs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        return { ok: true, json: async () => cvs } as any;
+      } catch (error) {
+        handleFirestoreError(error, OperationType.LIST, 'cvs');
+      }
     },
     save: async (cvData: any) => {
       const user = auth.currentUser;
@@ -151,15 +194,15 @@ export const api = {
       const user = auth.currentUser;
       if (!user) return { ok: false } as any;
       
-      await addDoc(collection(db, 'payment_requests'), {
-        userId: user.uid,
-        userEmail: user.email,
-        type: data.type,
-        amount: data.amount,
-        status: 'pending',
-        createdAt: serverTimestamp()
+      return fetch('/api/payment/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...data,
+          userId: user.uid,
+          userEmail: user.email
+        })
       });
-      return { ok: true, json: async () => ({ success: true }) } as any;
     }
   },
   invoices: {
@@ -177,18 +220,11 @@ export const api = {
       const user = auth.currentUser;
       if (!user) return { ok: false } as any;
       
-      const userRef = doc(db, 'users', user.uid);
-      const userDoc = await getDoc(userRef);
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        const field = type === 'cv' ? 'cvGenerationsRemaining' : 'letterGenerationsRemaining';
-        const current = userData[field] || 0;
-        if (current > 0) {
-          await updateDoc(userRef, { [field]: current - 1 });
-          return { ok: true, json: async () => ({ success: true }) } as any;
-        }
-      }
-      return { ok: false, json: async () => ({ error: 'No generations remaining' }) } as any;
+      return fetch('/api/ia/consume', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type, userId: user.uid })
+      });
     }
   },
   messages: {
@@ -251,22 +287,38 @@ export const api = {
       return { ok: true, json: async () => ({ totalReferrals: 0 }) } as any;
     },
     getUsers: async () => {
-      const snapshot = await getDocs(collection(db, 'users'));
-      const users = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      return { ok: true, json: async () => users } as any;
+      try {
+        const snapshot = await getDocs(collection(db, 'users'));
+        const users = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        return { ok: true, json: async () => users } as any;
+      } catch (error) {
+        handleFirestoreError(error, OperationType.LIST, 'users');
+      }
     },
-    banUser: async (id: string) => {
-      await updateDoc(doc(db, 'users', id), { status: 'banned' });
-      return { ok: true } as any;
+    banUser: async (id: string | number) => {
+      try {
+        await updateDoc(doc(db, 'users', String(id)), { status: 'banned' });
+        return { ok: true } as any;
+      } catch (error) {
+        handleFirestoreError(error, OperationType.UPDATE, `users/${id}`);
+      }
     },
-    deleteUser: async (id: string) => {
-      await deleteDoc(doc(db, 'users', id));
-      return { ok: true } as any;
+    deleteUser: async (id: string | number) => {
+      try {
+        await deleteDoc(doc(db, 'users', String(id)));
+        return { ok: true } as any;
+      } catch (error) {
+        handleFirestoreError(error, OperationType.DELETE, `users/${id}`);
+      }
     },
     getPayments: async () => {
-      const snapshot = await getDocs(query(collection(db, 'payment_requests'), orderBy('createdAt', 'desc')));
-      const payments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      return { ok: true, json: async () => payments } as any;
+      try {
+        const snapshot = await getDocs(query(collection(db, 'payment_requests'), orderBy('createdAt', 'desc')));
+        const payments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        return { ok: true, json: async () => payments } as any;
+      } catch (error) {
+        handleFirestoreError(error, OperationType.LIST, 'payment_requests');
+      }
     },
     getPromos: async () => {
       const snapshot = await getDocs(collection(db, 'promo_codes'));
@@ -280,55 +332,77 @@ export const api = {
       });
       return { ok: true, json: async () => ({ id: docRef.id }) } as any;
     },
-    deletePromo: async (id: string) => {
-      await deleteDoc(doc(db, 'promo_codes', id));
-      return { ok: true } as any;
-    },
-    confirmPayment: async (id: string) => {
-      const paymentRef = doc(db, 'payment_requests', id);
-      const paymentDoc = await getDoc(paymentRef);
-      if (paymentDoc.exists()) {
-        const paymentData = paymentDoc.data();
-        await updateDoc(paymentRef, { status: 'confirmed' });
-        
-        // Update user status
-        const userRef = doc(db, 'users', paymentData.userId);
-        await updateDoc(userRef, { 
-          isPremium: true,
-          role: 'premium',
-          [`${paymentData.type}ExpiresAt`]: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
-        });
+    deletePromo: async (id: string | number) => {
+      try {
+        await deleteDoc(doc(db, 'promo_codes', String(id)));
+        return { ok: true } as any;
+      } catch (error) {
+        handleFirestoreError(error, OperationType.DELETE, `promo_codes/${id}`);
       }
-      return { ok: true } as any;
+    },
+    confirmPayment: async (id: string | number) => {
+      try {
+        const paymentRef = doc(db, 'payment_requests', String(id));
+        const paymentDoc = await getDoc(paymentRef);
+        if (paymentDoc.exists()) {
+          const paymentData = paymentDoc.data();
+          await updateDoc(paymentRef, { status: 'confirmed' });
+          
+          // Update user status
+          const userRef = doc(db, 'users', paymentData.userId);
+          await updateDoc(userRef, { 
+            isPremium: true,
+            role: 'premium',
+            [`${paymentData.type}ExpiresAt`]: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
+          });
+        }
+        return { ok: true } as any;
+      } catch (error) {
+        handleFirestoreError(error, OperationType.UPDATE, `payment_requests/${id}`);
+      }
     },
     getInvoices: async () => {
       const snapshot = await getDocs(collection(db, 'invoices'));
       const invoices = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       return { ok: true, json: async () => invoices } as any;
     },
-    generateInvoice: async (paymentId: string) => {
+    generateInvoice: async (paymentId: string | number) => {
       return { ok: true } as any;
     },
-    sendMessage: async (data: { userId: string, content: string, invoiceId?: string }) => {
-      await addDoc(collection(db, 'messages'), {
-        ...data,
-        read: false,
-        createdAt: serverTimestamp()
-      });
-      return { ok: true } as any;
+    sendMessage: async (data: { userId: string | number, content: string, invoiceId?: string | number }) => {
+      try {
+        await addDoc(collection(db, 'messages'), {
+          ...data,
+          userId: String(data.userId),
+          invoiceId: data.invoiceId ? String(data.invoiceId) : undefined,
+          read: false,
+          createdAt: serverTimestamp()
+        });
+        return { ok: true } as any;
+      } catch (error) {
+        handleFirestoreError(error, OperationType.CREATE, 'messages');
+      }
     },
     getReviews: async () => {
       const snapshot = await getDocs(collection(db, 'reviews'));
       const reviews = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       return { ok: true, json: async () => reviews } as any;
     },
-    approveReview: async (id: string) => {
-      await updateDoc(doc(db, 'reviews', id), { status: 'approved' });
-      return { ok: true } as any;
+    approveReview: async (id: string | number) => {
+      try {
+        await updateDoc(doc(db, 'reviews', String(id)), { status: 'approved' });
+        return { ok: true } as any;
+      } catch (error) {
+        handleFirestoreError(error, OperationType.UPDATE, `reviews/${id}`);
+      }
     },
-    deleteReview: async (id: string) => {
-      await deleteDoc(doc(db, 'reviews', id));
-      return { ok: true } as any;
+    deleteReview: async (id: string | number) => {
+      try {
+        await deleteDoc(doc(db, 'reviews', String(id)));
+        return { ok: true } as any;
+      } catch (error) {
+        handleFirestoreError(error, OperationType.DELETE, `reviews/${id}`);
+      }
     },
     getEmails: async () => {
       return { ok: true, json: async () => [] } as any;
