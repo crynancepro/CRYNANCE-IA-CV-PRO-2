@@ -32,6 +32,8 @@ export default function Login() {
         setError('Email ou mot de passe incorrect.');
       } else if (error.code === 'auth/unauthorized-domain') {
         setError('Ce domaine n\'est pas autorisé dans la console Firebase. Veuillez ajouter votre lien Vercel aux domaines autorisés.');
+      } else if (error.code === 'auth/operation-not-allowed') {
+        setError('La connexion par Email/Mot de passe n\'est pas activée dans votre console Firebase (Authentication > Sign-in method).');
       } else if (error.code === 'auth/network-request-failed') {
         setError('Erreur réseau. Vérifiez votre connexion internet.');
       } else {

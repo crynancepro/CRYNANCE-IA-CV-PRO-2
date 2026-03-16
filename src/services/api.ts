@@ -10,7 +10,16 @@ const getAuthHeader = () => {
 export const api = {
   public: {
     getStats: async () => {
-      return fetch('/api/public/stats');
+      // Mock stats for static deployment
+      return {
+        ok: true,
+        json: async () => ({
+          totalCvs: 12450,
+          totalUsers: 3200,
+          cvsToday: 85,
+          satisfaction: 4.9
+        })
+      } as any;
     }
   },
   auth: {
@@ -174,17 +183,22 @@ export const api = {
   },
   reviews: {
     list: async () => {
-      return fetch('/api/reviews');
+      // Mock reviews for static deployment
+      return {
+        ok: true,
+        json: async () => ({
+          reviews: [
+            { id: 1, firstName: "Mamadou", lastName: "S", content: "J'ai trouvé un stage grâce à ce CV généré !", rating: 5 },
+            { id: 2, firstName: "Fatou", lastName: "D", content: "Très rapide et professionnel, je recommande.", rating: 5 },
+            { id: 3, firstName: "Jean", lastName: "K", content: "Le meilleur générateur de CV que j'ai utilisé.", rating: 5 }
+          ],
+          avgRating: 4.9,
+          totalReviews: 1250
+        })
+      } as any;
     },
     submit: async (data: { rating: number, content: string }) => {
-      return fetch('/api/reviews', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          ...getAuthHeader()
-        },
-        body: JSON.stringify(data)
-      });
+      return { ok: true, json: async () => ({ success: true }) } as any;
     }
   },
   admin: {

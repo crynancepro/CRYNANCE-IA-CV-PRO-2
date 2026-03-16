@@ -44,7 +44,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } else {
         // If user document doesn't exist in Firestore but exists in Auth,
         // we might need to create it or handle it.
-        // For now, just set a basic user object.
         const basicUser: User = {
           uid,
           email: auth.currentUser?.email || null,
@@ -56,8 +55,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
         setUser(basicUser);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching user profile:", error);
+      if (error.message?.includes('client is offline')) {
+        console.warn("Firestore seems to be unreachable. Make sure you have created the Firestore database in your Firebase console and that security rules allow access.");
+      }
+      
+      // Fallback to basic user info from Auth if Firestore fails
+      const basicUser: User = {
+        uid,
+        email: auth.currentUser?.email || null,
+        firstName: '',
+        lastName: '',
+        phone: '',
+        isPremium: false,
+        role: 'user'
+      };
+      setUser(basicUser);
     }
   };
 
