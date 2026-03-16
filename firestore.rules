@@ -84,10 +84,10 @@ service cloud.firestore {
       allow delete: if isDocOwner() || isAdmin();
     }
 
-    match /payment_requests/{requestId} {
-      allow read: if isDocOwner() || isAdmin();
-      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
-      allow delete: if isAdmin();
+    match /{collectionName}/{requestId} {
+      allow read: if collectionName == "demandes de paiement" && (isDocOwner() || isAdmin());
+      allow create: if collectionName == "demandes de paiement" && isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow delete: if collectionName == "demandes de paiement" && isAdmin();
     }
 
     match /promo_codes/{promoId} {

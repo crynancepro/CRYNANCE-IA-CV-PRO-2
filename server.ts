@@ -99,7 +99,7 @@ app.post('/api/payment/request', async (req, res) => {
   }
 
   try {
-    const requestRef = await db.collection('payment_requests').add({
+    const requestRef = await db.collection('demandes de paiement').add({
       userId,
       userEmail,
       type,
@@ -116,7 +116,7 @@ app.post('/api/payment/request', async (req, res) => {
 });
 
 // Statut Global (Public)
-app.get('/api/stats', async (req, res) => {
+app.get('/api/statistiques', async (req, res) => {
   try {
     const usersSnap = await db.collection('users').count().get();
     const cvsSnap = await db.collection('cvs').count().get();
@@ -168,7 +168,7 @@ app.post('/api/admin/confirm-payment', isAdmin, async (req, res) => {
   }
 
   try {
-    const paymentRef = db.collection('payment_requests').doc(paymentId);
+    const paymentRef = db.collection('demandes de paiement').doc(paymentId);
     const paymentDoc = await paymentRef.get();
 
     if (!paymentDoc.exists) {

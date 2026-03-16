@@ -47,7 +47,7 @@
       "schema": "CV",
       "description": "Generated CVs"
     },
-    "/payment_requests/{requestId}": {
+    "/demandes de paiement/{requestId}": {
       "schema": "PaymentRequest",
       "description": "Payment verification requests"
     },

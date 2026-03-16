@@ -55,7 +55,7 @@ function handleFirestoreError(error: any, operationType: OperationType, path: st
 export const api = {
   public: {
     getStats: async () => {
-      return fetch('/api/stats');
+      return fetch('/api/statistiques');
     }
   },
   auth: {
@@ -176,7 +176,7 @@ export const api = {
     history: async () => {
       const user = auth.currentUser;
       if (!user) return { ok: true, json: async () => [] } as any;
-      const q = query(collection(db, 'payment_requests'), where('userId', '==', user.uid), orderBy('createdAt', 'desc'));
+      const q = query(collection(db, 'demandes de paiement'), where('userId', '==', user.uid), orderBy('createdAt', 'desc'));
       const snapshot = await getDocs(q);
       const history = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       return { ok: true, json: async () => history } as any;
@@ -289,7 +289,7 @@ export const api = {
     getStats: async () => {
       const usersSnap = await getDocs(collection(db, 'users'));
       const cvsSnap = await getDocs(collection(db, 'cvs'));
-      const paymentsSnap = await getDocs(collection(db, 'payment_requests'));
+      const paymentsSnap = await getDocs(collection(db, 'demandes de paiement'));
       
       return {
         ok: true,
@@ -337,11 +337,11 @@ export const api = {
     },
     getPayments: async () => {
       try {
-        const snapshot = await getDocs(query(collection(db, 'payment_requests'), orderBy('createdAt', 'desc')));
+        const snapshot = await getDocs(query(collection(db, 'demandes de paiement'), orderBy('createdAt', 'desc')));
         const payments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         return { ok: true, json: async () => payments } as any;
       } catch (error) {
-        handleFirestoreError(error, OperationType.LIST, 'payment_requests');
+        handleFirestoreError(error, OperationType.LIST, 'demandes de paiement');
       }
     },
     getPromos: async () => {
