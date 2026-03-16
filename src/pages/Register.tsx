@@ -46,6 +46,8 @@ export default function Register() {
         referredBy: formData.referredBy,
         isPremium: false,
         role: 'user',
+        cvGenerationsRemaining: 1, // Initial free credits
+        letterGenerationsRemaining: 1,
         createdAt: new Date().toISOString()
       });
 

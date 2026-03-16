@@ -55,16 +55,7 @@ function handleFirestoreError(error: any, operationType: OperationType, path: st
 export const api = {
   public: {
     getStats: async () => {
-      // Mock stats for static deployment
-      return {
-        ok: true,
-        json: async () => ({
-          totalCvs: 12450,
-          totalUsers: 3200,
-          cvsToday: 85,
-          satisfaction: 4.9
-        })
-      } as any;
+      return fetch('/api/stats');
     }
   },
   auth: {
@@ -243,21 +234,54 @@ export const api = {
   },
   reviews: {
     list: async () => {
-      // Mock reviews for static deployment
-      return {
-        ok: true,
-        json: async () => ({
-          reviews: [
-            { id: 1, firstName: "Mamadou", lastName: "S", content: "J'ai trouvé un stage grâce à ce CV généré !", rating: 5 },
-            { id: 2, firstName: "Fatou", lastName: "D", content: "Très rapide et professionnel, je recommande.", rating: 5 },
-            { id: 3, firstName: "Jean", lastName: "K", content: "Le meilleur générateur de CV que j'ai utilisé.", rating: 5 }
-          ],
-          avgRating: 4.9,
-          totalReviews: 1250
-        })
-      } as any;
+      try {
+        const q = query(collection(db, 'reviews'), where('status', '==', 'approved'), orderBy('createdAt', 'desc'));
+        const snapshot = await getDocs(q);
+        const reviews = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        
+        // If no approved reviews yet, return some defaults
+        if (reviews.length === 0) {
+          return {
+            ok: true,
+            json: async () => ({
+              reviews: [
+                { id: 1, firstName: "Mamadou", lastName: "S", content: "J'ai trouvé un stage grâce à ce CV généré !", rating: 5 },
+                { id: 2, firstName: "Fatou", lastName: "D", content: "Très rapide et professionnel, je recommande.", rating: 5 },
+                { id: 3, firstName: "Jean", lastName: "K", content: "Le meilleur générateur de CV que j'ai utilisé.", rating: 5 }
+              ],
+              avgRating: 4.9,
+              totalReviews: 1250
+            })
+          } as any;
+        }
+
+        return {
+          ok: true,
+          json: async () => ({
+            reviews,
+            avgRating: 4.9,
+            totalReviews: 1250 + reviews.length
+          })
+        } as any;
+      } catch (error) {
+        handleFirestoreError(error, OperationType.LIST, 'reviews');
+      }
     },
     submit: async (data: { rating: number, content: string }) => {
+      const user = auth.currentUser;
+      if (!user) return { ok: false } as any;
+      
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      const userData = userDoc.data();
+
+      await addDoc(collection(db, 'reviews'), {
+        ...data,
+        userId: user.uid,
+        firstName: userData?.firstName || 'Utilisateur',
+        lastName: userData?.lastName || '',
+        status: 'pending',
+        createdAt: serverTimestamp()
+      });
       return { ok: true, json: async () => ({ success: true }) } as any;
     }
   },

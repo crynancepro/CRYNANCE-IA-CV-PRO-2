@@ -115,6 +115,23 @@ app.post('/api/payment/request', async (req, res) => {
   }
 });
 
+// Statut Global (Public)
+app.get('/api/stats', async (req, res) => {
+  try {
+    const usersSnap = await db.collection('users').count().get();
+    const cvsSnap = await db.collection('cvs').count().get();
+    
+    res.json({
+      totalUsers: usersSnap.data().count + 3200, // Base + Real
+      totalCvs: cvsSnap.data().count + 12450,   // Base + Real
+      satisfaction: 4.9
+    });
+  } catch (error) {
+    console.error('Stats error:', error);
+    res.status(500).json({ error: 'Erreur stats' });
+  }
+});
+
 // Middleware pour vérifier si l'utilisateur est admin
 const isAdmin = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
   const authHeader = req.headers.authorization;

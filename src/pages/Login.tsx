@@ -4,6 +4,8 @@ import { motion } from 'motion/react';
 import { Mail, Lock, Loader2, User as UserIcon, AlertCircle } from 'lucide-react';
 import { auth } from '../firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { db } from '../firebase';
 
 export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
@@ -20,7 +22,27 @@ export default function Login() {
     setIsLoading(true);
     setError(null);
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+
+      // Ensure user document exists in Firestore
+      const userDocRef = doc(db, 'users', user.uid);
+      const userDoc = await getDoc(userDocRef);
+      
+      if (!userDoc.exists()) {
+        await setDoc(userDocRef, {
+          uid: user.uid,
+          email: user.email,
+          firstName: user.displayName?.split(' ')[0] || 'Utilisateur',
+          lastName: user.displayName?.split(' ')[1] || '',
+          isPremium: false,
+          role: 'user',
+          cvGenerationsRemaining: 1,
+          letterGenerationsRemaining: 1,
+          createdAt: new Date().toISOString()
+        });
+      }
+
       if (email === 'peter25ngouala@gmail.com') {
         navigate('/admin');
       } else {
