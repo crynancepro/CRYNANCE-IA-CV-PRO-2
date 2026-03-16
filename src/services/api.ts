@@ -342,23 +342,29 @@ export const api = {
     },
     confirmPayment: async (id: string | number) => {
       try {
-        const paymentRef = doc(db, 'payment_requests', String(id));
-        const paymentDoc = await getDoc(paymentRef);
-        if (paymentDoc.exists()) {
-          const paymentData = paymentDoc.data();
-          await updateDoc(paymentRef, { status: 'confirmed' });
-          
-          // Update user status
-          const userRef = doc(db, 'users', paymentData.userId);
-          await updateDoc(userRef, { 
-            isPremium: true,
-            role: 'premium',
-            [`${paymentData.type}ExpiresAt`]: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
-          });
+        const user = auth.currentUser;
+        if (!user) throw new Error('Non authentifié');
+        
+        const token = await user.getIdToken();
+        
+        const response = await fetch('/api/admin/confirm-payment', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ paymentId: String(id) })
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Erreur lors de la confirmation');
         }
-        return { ok: true } as any;
+
+        return { ok: true, json: async () => await response.json() } as any;
       } catch (error) {
-        handleFirestoreError(error, OperationType.UPDATE, `payment_requests/${id}`);
+        console.error('Confirm payment error:', error);
+        throw error;
       }
     },
     getInvoices: async () => {

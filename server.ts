@@ -107,19 +107,89 @@ app.post('/api/payment/request', async (req, res) => {
   }
 });
 
-// Statut Global
-app.get('/api/stats', async (req, res) => {
+// Middleware pour vérifier si l'utilisateur est admin
+const isAdmin = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Non authentifié' });
+  }
+
+  const idToken = authHeader.split('Bearer ')[1];
   try {
-    const usersSnap = await db.collection('users').count().get();
-    const cvsSnap = await db.collection('cvs').count().get();
-    
-    res.json({
-      totalUsers: usersSnap.data().count,
-      totalCvs: cvsSnap.data().count,
-      satisfaction: 4.9
-    });
+    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    if (decodedToken.email === 'peter25ngouala@gmail.com') {
+      next();
+    } else {
+      // Vérifier aussi dans Firestore si le rôle est admin
+      const userDoc = await db.collection('users').doc(decodedToken.uid).get();
+      if (userDoc.exists && userDoc.data()?.role === 'admin') {
+        next();
+      } else {
+        res.status(403).json({ error: 'Accès refusé : Droits administrateur requis' });
+      }
+    }
   } catch (error) {
-    res.status(500).json({ error: 'Erreur stats' });
+    console.error('Admin verification error:', error);
+    res.status(401).json({ error: 'Token invalide' });
+  }
+};
+
+// Route pour confirmer un paiement (Admin seulement)
+app.post('/api/admin/confirm-payment', isAdmin, async (req, res) => {
+  const { paymentId } = req.body;
+
+  if (!paymentId) {
+    return res.status(400).json({ error: 'ID de paiement manquant' });
+  }
+
+  try {
+    const paymentRef = db.collection('payment_requests').doc(paymentId);
+    const paymentDoc = await paymentRef.get();
+
+    if (!paymentDoc.exists) {
+      return res.status(404).json({ error: 'Demande de paiement non trouvée' });
+    }
+
+    const paymentData = paymentDoc.data();
+    if (paymentData?.status === 'confirmed') {
+      return res.status(400).json({ error: 'Paiement déjà confirmé' });
+    }
+
+    const userId = paymentData?.userId;
+    const planType = paymentData?.type; // 'monthly' or 'yearly'
+
+    // 1. Mettre à jour le statut du paiement
+    await paymentRef.update({
+      status: 'confirmed',
+      confirmedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    // 2. Mettre à jour les crédits et le statut de l'utilisateur
+    const userRef = db.collection('users').doc(userId);
+    const userDoc = await userRef.get();
+    
+    const expirationDate = new Date();
+    if (planType === 'yearly') {
+      expirationDate.setFullYear(expirationDate.getFullYear() + 1);
+    } else {
+      expirationDate.setMonth(expirationDate.getMonth() + 1);
+    }
+
+    const updates: any = {
+      isPremium: true,
+      role: 'premium',
+      premiumExpiresAt: expirationDate.toISOString(),
+      // Ajouter des crédits généreux pour le premium
+      cvGenerationsRemaining: admin.firestore.FieldValue.increment(50),
+      letterGenerationsRemaining: admin.firestore.FieldValue.increment(50)
+    };
+
+    await userRef.update(updates);
+
+    res.json({ success: true, message: 'Paiement confirmé et crédits ajoutés' });
+  } catch (error) {
+    console.error('Confirm payment error:', error);
+    res.status(500).json({ error: 'Erreur lors de la confirmation du paiement' });
   }
 });
 
