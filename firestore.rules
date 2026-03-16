@@ -38,6 +38,12 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == resource.data.userId;
     }
 
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email == "peter25ngouala@gmail.com" && (request.auth.token.email_verified == true || !('email_verified' in request.auth.token))));
+    }
+
     function isValidUser(data) {
       return data.keys().hasAll(['uid', 'email']) &&
              data.uid is string &&
@@ -58,18 +64,55 @@ service cloud.firestore {
     // ===============================================================
 
     match /users/{userId} {
-      allow read: if isOwner(userId);
+      allow read: if isOwner(userId) || isAdmin();
       allow create: if isOwner(userId) && isValidUser(request.resource.data);
-      allow update: if isOwner(userId) && isValidUser(request.resource.data) && 
+      allow update: if (isOwner(userId) || isAdmin()) && isValidUser(request.resource.data) && 
                       request.resource.data.uid == resource.data.uid;
     }
 
     match /cvs/{cvId} {
-      allow read: if isDocOwner();
+      allow read: if isDocOwner() || isAdmin();
       allow create: if isAuthenticated() && isValidCV(request.resource.data);
-      allow update: if isDocOwner() && isValidCV(request.resource.data) &&
+      allow update: if (isDocOwner() || isAdmin()) && isValidCV(request.resource.data) &&
                       request.resource.data.userId == resource.data.userId;
-      allow delete: if isDocOwner();
+      allow delete: if isDocOwner() || isAdmin();
+    }
+
+    match /cover_letters/{letterId} {
+      allow read: if isDocOwner() || isAdmin();
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update: if (isDocOwner() || isAdmin()) && request.resource.data.userId == resource.data.userId;
+      allow delete: if isDocOwner() || isAdmin();
+    }
+
+    match /payment_requests/{requestId} {
+      allow read: if isDocOwner() || isAdmin();
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /promo_codes/{promoId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /messages/{messageId} {
+      allow read: if isDocOwner() || isAdmin();
+      allow create: if isAdmin();
+      allow update: if isDocOwner() || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /invoices/{invoiceId} {
+      allow read: if isDocOwner() || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /reviews/{reviewId} {
+      allow read: if true; // Publicly readable
+      allow create: if isAuthenticated();
+      allow update, delete: if isAdmin();
     }
   }
 }

@@ -23,6 +23,19 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["userId", "title", "content"]
+    },
+    "PaymentRequest": {
+      "title": "Payment Request",
+      "description": "User payment requests for premium access",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "email": { "type": "string" },
+        "type": { "type": "string" },
+        "amount": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "confirmed", "rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
     }
   },
   "firestore": {
@@ -33,6 +46,18 @@
     "/cvs/{cvId}": {
       "schema": "CV",
       "description": "Generated CVs"
+    },
+    "/payment_requests/{requestId}": {
+      "schema": "PaymentRequest",
+      "description": "Payment verification requests"
+    },
+    "/promo_codes/{promoId}": {
+      "schema": "object",
+      "description": "Discount codes"
+    },
+    "/messages/{messageId}": {
+      "schema": "object",
+      "description": "Admin messages to users"
     }
   }
 }

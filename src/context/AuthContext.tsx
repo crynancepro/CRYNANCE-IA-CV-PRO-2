@@ -37,10 +37,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   const fetchUserProfile = async (uid: string) => {
+    const adminEmail = "peter25ngouala@gmail.com";
     try {
       const userDoc = await getDoc(doc(db, 'users', uid));
       if (userDoc.exists()) {
-        setUser(userDoc.data() as User);
+        const userData = userDoc.data() as User;
+        // Force admin role if email matches
+        if (userData.email === adminEmail) {
+          userData.role = 'admin';
+        }
+        setUser(userData);
       } else {
         // If user document doesn't exist in Firestore but exists in Auth,
         // we might need to create it or handle it.
@@ -51,7 +57,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           lastName: '',
           phone: '',
           isPremium: false,
-          role: 'user'
+          role: auth.currentUser?.email === adminEmail ? 'admin' : 'user'
         };
         setUser(basicUser);
       }
@@ -69,7 +75,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         lastName: '',
         phone: '',
         isPremium: false,
-        role: 'user'
+        role: auth.currentUser?.email === adminEmail ? 'admin' : 'user'
       };
       setUser(basicUser);
     }
