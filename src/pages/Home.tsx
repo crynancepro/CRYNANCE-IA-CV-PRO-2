@@ -243,6 +243,92 @@ export default function Home() {
         </div>
       </section>
 
+      {/* NEW: SERVICES EXPRESS SECTION */}
+      <section className="py-24 bg-white relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-1/3 h-full bg-primary/5 -skew-x-12 translate-x-1/2 -z-10"></div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col lg:flex-row lg:items-end justify-between mb-16 gap-6">
+            <div className="max-w-2xl">
+              <div className="inline-flex items-center space-x-2 bg-emerald-100 text-emerald-700 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest mb-4">
+                <Zap size={14} fill="currentColor" />
+                <span>Services Express à la Carte</span>
+              </div>
+              <h2 className="text-3xl md:text-4xl font-black text-slate-900 leading-tight">
+                Boostez votre candidature avec nos <span className="text-primary">Services Premium</span>
+              </h2>
+            </div>
+            <p className="text-slate-600 font-medium lg:max-w-sm">
+              Des solutions rapides et efficaces pour maximiser vos chances de décrocher l'entretien de vos rêves.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8">
+            {[
+              {
+                title: "Optimisation CV",
+                subtitle: "Pour offre d’emploi",
+                price: "500",
+                desc: "Adaptation précise de votre CV aux mots-clés d'une annonce spécifique pour passer les filtres.",
+                icon: Briefcase,
+                color: "bg-amber-500",
+                link: "https://pay.wave.com/m/M_sn_wXlszdyVZOIV/c/sn/?amount=500"
+              },
+              {
+                title: "Lettre de Motivation",
+                subtitle: "Personnalisée par IA",
+                price: "300",
+                desc: "Une lettre percutante rédigée sur mesure pour captiver l'attention des recruteurs dès les premières lignes.",
+                icon: FileText,
+                color: "bg-purple-500",
+                link: "https://pay.wave.com/m/M_sn_wXlszdyVZOIV/c/sn/?amount=300"
+              },
+              {
+                title: "Analyse & Score ATS",
+                subtitle: "Amélioration garantie",
+                price: "200",
+                desc: "Diagnostic complet de votre CV et calcul de compatibilité avec les systèmes de tri automatique.",
+                icon: ShieldCheck,
+                color: "bg-emerald-500",
+                link: "https://pay.wave.com/m/M_sn_wXlszdyVZOIV/c/sn/?amount=200"
+              }
+            ].map((service, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.1 }}
+                className="group bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl hover:shadow-2xl hover:border-primary/20 transition-all flex flex-col"
+              >
+                <div className={`w-16 h-16 ${service.color} text-white rounded-2xl flex items-center justify-center mb-6 shadow-lg group-hover:scale-110 transition-transform`}>
+                  <service.icon size={32} />
+                </div>
+                <div className="mb-6 flex-1">
+                  <h3 className="text-2xl font-black text-slate-900 mb-1">{service.title}</h3>
+                  <p className="text-primary font-bold text-sm uppercase tracking-widest mb-4">{service.subtitle}</p>
+                  <p className="text-slate-600 leading-relaxed text-sm">{service.desc}</p>
+                </div>
+                <div className="pt-6 border-t border-slate-50 flex items-center justify-between">
+                  <div>
+                    <span className="text-3xl font-black text-slate-900">{service.price}</span>
+                    <span className="text-slate-400 font-bold text-xs ml-1 uppercase">FCFA</span>
+                  </div>
+                  <a 
+                    href={service.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="bg-slate-900 text-white px-6 py-3 rounded-xl font-bold text-sm hover:bg-primary transition-all flex items-center space-x-2 group/btn"
+                  >
+                    <span>Commander</span>
+                    <ArrowRight size={16} className="group-hover/btn:translate-x-1 transition-transform" />
+                  </a>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* 3. SECTION MODÈLES DE CV & LETTRES */}
       <section id="models" className="py-24 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -350,10 +436,10 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-12">
             {[
-              { label: "CV générés", value: stats.totalCvs.toLocaleString(), icon: FileText, color: "text-primary" },
-              { label: "Utilisateurs inscrits", value: stats.totalUsers.toLocaleString(), icon: Users, color: "text-blue-400" },
-              { label: "Note moyenne", value: `${stats.satisfaction}/5`, icon: Star, color: "text-amber-400" },
-              { label: "CV créés aujourd’hui", value: stats.cvsToday.toLocaleString(), icon: Flame, color: "text-orange-500" }
+              { label: "CV générés", value: (stats.totalCvs || 0).toLocaleString(), icon: FileText, color: "text-primary" },
+              { label: "Utilisateurs inscrits", value: (stats.totalUsers || 0).toLocaleString(), icon: Users, color: "text-blue-400" },
+              { label: "Note moyenne", value: `${stats.satisfaction || 0}/5`, icon: Star, color: "text-amber-400" },
+              { label: "CV créés aujourd’hui", value: (stats.cvsToday || 0).toLocaleString(), icon: Flame, color: "text-orange-500" }
             ].map((stat, i) => (
               <motion.div 
                 key={i}
@@ -414,19 +500,38 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto mb-20">
             <h2 className="text-3xl font-black text-slate-900 mb-6">Tarifs Simples & Transparents</h2>
-            <p className="text-base text-slate-600">Choisissez le plan qui correspond à vos ambitions.</p>
+            <p className="text-base text-slate-600">Choisissez le service qui correspond à vos besoins immédiats.</p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
             {[
-              { name: "Modern", price: "499", features: ["Template Modern", "Export PDF", "IA Basique", "24h d'accès"], color: "border-slate-200" },
-              { name: "Classic", price: "799", features: ["Template Classic", "Export PDF & Word", "IA Avancée", "Lettre de motivation", "24h d'accès"], color: "border-primary shadow-2xl shadow-primary/10", popular: true },
-              { name: "Creative", price: "1000", features: ["Tous les Templates", "Export PDF & Word", "IA Premium", "Lettre de motivation", "Traduction", "24h d'accès"], color: "border-slate-200" }
+              { 
+                name: "Analyse & Score ATS", 
+                price: "200", 
+                features: ["Calcul du score ATS", "Diagnostic complet", "Conseils de correction", "Accès immédiat"], 
+                color: "border-slate-200",
+                link: "https://pay.wave.com/m/M_sn_wXlszdyVZOIV/c/sn/?amount=200"
+              },
+              { 
+                name: "Optimisation CV Pro", 
+                price: "500", 
+                features: ["Adaptation à l'offre", "Mots-clés optimisés", "Mise en page pro", "Support prioritaire"], 
+                color: "border-primary shadow-2xl shadow-primary/10", 
+                popular: true,
+                link: "https://pay.wave.com/m/M_sn_wXlszdyVZOIV/c/sn/?amount=500"
+              },
+              { 
+                name: "Lettre de Motivation", 
+                price: "300", 
+                features: ["Rédaction IA sur mesure", "Adaptée au poste visé", "Style professionnel", "Prête à l'emploi"], 
+                color: "border-slate-200",
+                link: "https://pay.wave.com/m/M_sn_wXlszdyVZOIV/c/sn/?amount=300"
+              }
             ].map((plan, i) => (
               <div key={i} className={`bg-white rounded-[2.5rem] p-10 border-2 ${plan.color} relative flex flex-col`}>
                 {plan.popular && (
                   <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-primary text-white px-6 py-2 rounded-full text-xs font-black uppercase tracking-widest">
-                    Recommandé
+                    Le plus choisi
                   </div>
                 )}
                 <div className="mb-8">
@@ -446,9 +551,14 @@ export default function Home() {
                     </li>
                   ))}
                 </ul>
-                <Link to="/premium" className={`w-full py-4 rounded-2xl font-bold text-center transition-all ${plan.popular ? 'bg-primary text-white shadow-xl shadow-primary/20 hover:bg-primary-dark' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>
-                  Choisir ce plan
-                </Link>
+                <a 
+                  href={plan.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`w-full py-4 rounded-2xl font-bold text-center transition-all ${plan.popular ? 'bg-primary text-white shadow-xl shadow-primary/20 hover:bg-primary-dark' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
+                >
+                  Commander avec Wave
+                </a>
               </div>
             ))}
           </div>

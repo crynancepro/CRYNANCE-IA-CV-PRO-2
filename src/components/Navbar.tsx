@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { FileText, User, CreditCard, Home, LogOut, Menu, X, ShieldCheck, HelpCircle } from 'lucide-react';
+import { FileText, User, CreditCard, Home, LogOut, Menu, X, ShieldCheck, HelpCircle, Search, Zap } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { storage } from '../utils/storage';
 import { useAuth } from '../context/AuthContext';
@@ -37,12 +37,17 @@ export default function Navbar() {
       navLinks.push({ name: 'Mon Profil', path: '/profile', icon: User });
     } else {
       navLinks.push({ name: 'Mes CV', path: '/dashboard', icon: FileText });
-      navLinks.push({ name: 'Mes Lettres', path: '/dashboard', icon: FileText });
+      navLinks.push({ name: 'Optimisation CV', path: '/optimization', icon: Zap });
+      navLinks.push({ name: 'Lettre de Motivation', path: '/cover-letter', icon: FileText });
+      navLinks.push({ name: 'Analyse ATS', path: '/ats-analysis', icon: Search });
       navLinks.push({ name: 'Mon Profil', path: '/profile', icon: User });
       navLinks.push({ name: 'Premium', path: '/premium', icon: CreditCard });
     }
   } else {
     navLinks.push({ name: 'Créer CV', path: '/create-cv', icon: FileText });
+    navLinks.push({ name: 'Optimisation CV', path: '/optimization', icon: Zap });
+    navLinks.push({ name: 'Lettre de Motivation', path: '/cover-letter', icon: FileText });
+    navLinks.push({ name: 'Analyse ATS', path: '/ats-analysis', icon: Search });
     navLinks.push({ name: 'Premium', path: '/premium', icon: CreditCard });
   }
 

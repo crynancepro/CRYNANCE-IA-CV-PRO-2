@@ -1,25 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { auth, db } from '../firebase';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-
-interface User {
-  uid: string;
-  email: string | null;
-  firstName: string;
-  lastName: string;
-  phone: string;
-  isPremium: boolean;
-  role: string;
-  modernExpiresAt?: string;
-  classicExpiresAt?: string;
-  creativeExpiresAt?: string;
-  cvGenerationsRemaining?: number;
-  letterGenerationsRemaining?: number;
-  address?: string;
-  bio?: string;
-  status?: string;
-}
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { User } from '../types';
 
 interface AuthContextType {
   user: User | null;
@@ -42,23 +25,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const userDoc = await getDoc(doc(db, 'users', uid));
       if (userDoc.exists()) {
         const userData = userDoc.data() as User;
-        // Force admin role if email matches
+        userData.emailVerified = auth.currentUser?.emailVerified || false;
+        // Force admin role if email matches and persist it if needed
         if (userData.email === adminEmail) {
-          userData.role = 'admin';
+          if (userData.role !== 'admin') {
+            userData.role = 'admin';
+            await updateDoc(doc(db, 'users', uid), { role: 'admin' });
+          }
         }
         setUser(userData);
       } else {
         // If user document doesn't exist in Firestore but exists in Auth,
         // we might need to create it or handle it.
         const basicUser: User = {
+          id: 0, // Placeholder for ID
           uid,
-          email: auth.currentUser?.email || null,
+          email: auth.currentUser?.email || '',
           firstName: '',
           lastName: '',
           phone: '',
           isPremium: false,
           role: auth.currentUser?.email === adminEmail ? 'admin' : 'user'
         };
+        
+        // Create the document if it doesn't exist
+        await setDoc(doc(db, 'users', uid), {
+          ...basicUser,
+          createdAt: new Date().toISOString(),
+          cvGenerationsRemaining: 1,
+          letterGenerationsRemaining: 1
+        });
+        
         setUser(basicUser);
       }
     } catch (error: any) {
@@ -69,8 +66,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // Fallback to basic user info from Auth if Firestore fails
       const basicUser: User = {
+        id: 0,
         uid,
-        email: auth.currentUser?.email || null,
+        email: auth.currentUser?.email || '',
         firstName: '',
         lastName: '',
         phone: '',

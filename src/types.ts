@@ -2,15 +2,32 @@ import { Type } from "@google/genai";
 
 export interface User {
   id: number;
+  uid?: string;
   email: string;
+  emailVerified?: boolean;
   firstName: string;
   lastName: string;
   phone?: string;
+  photoURL?: string;
   isPremium: boolean;
+  premiumExpiresAt?: string;
   modernExpiresAt?: string;
   classicExpiresAt?: string;
   creativeExpiresAt?: string;
+  optimizationExpiresAt?: string;
+  letterExpiresAt?: string;
+  analysisExpiresAt?: string;
   role?: string;
+  hasOptimizationAccess?: boolean;
+  hasLetterAccess?: boolean;
+  hasAnalysisAccess?: boolean;
+  cvGenerationsRemaining?: number;
+  letterGenerationsRemaining?: number;
+  optimizationGenerationsRemaining?: number;
+  analysisGenerationsRemaining?: number;
+  address?: string;
+  bio?: string;
+  status?: string;
 }
 
 export interface CVSections {

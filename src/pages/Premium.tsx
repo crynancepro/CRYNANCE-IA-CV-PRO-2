@@ -17,31 +17,31 @@ export default function Premium() {
 
   const plans = [
     {
-      id: 'classic',
-      name: 'CV Classic',
-      price: 499,
-      icon: <FileText className="text-slate-500" size={32} />,
-      color: 'from-slate-400 to-slate-600',
-      waveLink: 'https://pay.wave.com/m/M_sn_wXlszdyVZOIV/c/sn/?amount=499',
-      features: ['Templates Classiques débloqués', 'Export PDF illimité', 'Optimisation IA', 'Accès à vie']
+      id: 'analysis',
+      name: 'Analyse CV / Score ATS',
+      price: 200,
+      icon: <FileText className="text-blue-500" size={32} />,
+      color: 'from-blue-400 to-blue-600',
+      waveLink: 'https://pay.wave.com/m/M_sn_wXlszdyVZOIV/c/sn/?amount=200',
+      features: ['Calcul du score ATS', 'Diagnostic complet', 'Conseils de correction', 'Accès immédiat']
     },
     {
-      id: 'creative',
-      name: 'CV Creative',
-      price: 799,
+      id: 'letter',
+      name: 'Lettre de Motivation',
+      price: 300,
       icon: <Sparkles className="text-purple-500" size={32} />,
       color: 'from-purple-500 to-pink-600',
-      waveLink: 'https://pay.wave.com/m/M_sn_wXlszdyVZOIV/c/sn/?amount=799',
-      features: ['Templates Créatifs débloqués', 'Export PDF illimité', 'Optimisation IA', 'Accès à vie']
+      waveLink: 'https://pay.wave.com/m/M_sn_wXlszdyVZOIV/c/sn/?amount=300',
+      features: ['Rédaction IA sur mesure', 'Adaptée au poste visé', 'Style professionnel', 'Prête à l\'emploi']
     },
     {
-      id: 'modern',
-      name: 'CV Modern (Full Access)',
-      price: 1000,
+      id: 'optimization',
+      name: 'Optimisation CV Pro',
+      price: 500,
       icon: <Zap className="text-amber-500" size={32} />,
       color: 'from-amber-500 to-orange-600',
-      waveLink: 'https://pay.wave.com/m/M_sn_wXlszdyVZOIV/c/sn/?amount=1000',
-      features: ['TOUS les templates débloqués', 'Modern, Classic & Creative', 'Export PDF & Word', 'Accès Prioritaire']
+      waveLink: 'https://pay.wave.com/m/M_sn_wXlszdyVZOIV/c/sn/?amount=500',
+      features: ['Adaptation à l\'offre d\'emploi', 'Mots-clés optimisés', 'Mise en page pro', 'Support prioritaire']
     }
   ];
 

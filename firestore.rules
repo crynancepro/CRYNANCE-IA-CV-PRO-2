@@ -35,27 +35,42 @@ service cloud.firestore {
     }
 
     function isDocOwner() {
-      return isAuthenticated() && request.auth.uid == resource.data.userId;
+      return isAuthenticated() && resource != null && request.auth.uid == resource.data.userId;
     }
 
     function isAdmin() {
       return isAuthenticated() &&
         (
+          request.auth.uid == "4cCpVwdbWISByTyK7Fl4X8uzZly1" ||
+          request.auth.token.email == "peter25ngouala@gmail.com" ||
           (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') ||
-          request.auth.token.email == "peter25ngouala@gmail.com"
+           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'user') == 'admin')
         );
+    }
+
+    function isRecent(timestamp) {
+      return timestamp is string || (timestamp is timestamp && 
+             timestamp > request.time - duration.value(5, 'm') &&
+             timestamp < request.time + duration.value(5, 'm'));
     }
 
     function isValidUser(data) {
       return data.uid is string &&
-             data.email is string;
+             data.email is string &&
+             data.email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
     }
 
     function isValidCV(data) {
       return data.userId is string &&
              data.userId == request.auth.uid &&
-             data.title is string;
+             data.title is string &&
+             data.title.size() > 0 && data.title.size() < 100;
+    }
+
+    function isValidMessage(data) {
+      return data.userId is string &&
+             data.content is string &&
+             data.content.size() > 0 && data.content.size() < 5000;
     }
 
     // ===============================================================
@@ -63,31 +78,35 @@ service cloud.firestore {
     // ===============================================================
 
     match /users/{userId} {
-      allow read: if isOwner(userId) || isAdmin();
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
       allow create: if isOwner(userId) && isValidUser(request.resource.data);
       allow update: if (isOwner(userId) || isAdmin()) && isValidUser(request.resource.data) && 
                       request.resource.data.uid == resource.data.uid;
     }
 
     match /cvs/{cvId} {
-      allow read: if isDocOwner() || isAdmin();
-      allow create: if isAuthenticated() && isValidCV(request.resource.data);
+      allow get: if isDocOwner() || isAdmin();
+      allow list: if isDocOwner() || isAdmin();
+      allow create: if isAuthenticated() && isValidCV(request.resource.data) && isRecent(request.resource.data.createdAt);
       allow update: if (isDocOwner() || isAdmin()) && isValidCV(request.resource.data) &&
                       request.resource.data.userId == resource.data.userId;
       allow delete: if isDocOwner() || isAdmin();
     }
 
     match /cover_letters/{letterId} {
-      allow read: if isDocOwner() || isAdmin();
-      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow get: if isDocOwner() || isAdmin();
+      allow list: if isDocOwner() || isAdmin();
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid && isRecent(request.resource.data.createdAt);
       allow update: if (isDocOwner() || isAdmin()) && request.resource.data.userId == resource.data.userId;
       allow delete: if isDocOwner() || isAdmin();
     }
 
-    match /{collectionName}/{requestId} {
-      allow read: if collectionName == "demandes de paiement" && (isDocOwner() || isAdmin());
-      allow create: if collectionName == "demandes de paiement" && isAuthenticated() && request.resource.data.userId == request.auth.uid;
-      allow delete: if collectionName == "demandes de paiement" && isAdmin();
+    match /payments/{requestId} {
+      allow get: if isDocOwner() || isAdmin();
+      allow list: if isAdmin() || (isAuthenticated() && query.limit <= 100); // Allow listing if admin or restricted
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid && isRecent(request.resource.data.createdAt);
+      allow delete: if isAdmin();
     }
 
     match /promo_codes/{promoId} {
@@ -97,8 +116,8 @@ service cloud.firestore {
 
     match /messages/{messageId} {
       allow read: if isDocOwner() || isAdmin();
-      allow create: if isAdmin();
-      allow update: if isDocOwner() || isAdmin();
+      allow create: if isAdmin() && isValidMessage(request.resource.data) && isRecent(request.resource.data.createdAt);
+      allow update: if (isDocOwner() || isAdmin()) && request.resource.data.userId == resource.data.userId;
       allow delete: if isAdmin();
     }
 
@@ -109,7 +128,7 @@ service cloud.firestore {
 
     match /reviews/{reviewId} {
       allow read: if true; // Publicly readable
-      allow create: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid && isRecent(request.resource.data.createdAt);
       allow update, delete: if isAdmin();
     }
   }

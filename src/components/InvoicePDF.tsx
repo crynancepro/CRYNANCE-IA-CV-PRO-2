@@ -77,7 +77,7 @@ export const InvoicePDF: React.FC<InvoicePDFProps> = ({ invoice, onClose }) => {
               <div className="text-right">
                 <h2 className="text-[24px] font-black text-slate-900 uppercase tracking-tighter leading-none mb-1">FACTURE</h2>
                 <p className="text-primary font-bold text-[14px]">N° {invoice.invoiceNumber}</p>
-                <p className="text-slate-500 text-[11px] mt-1">Date: {new Date(invoice.createdAt).toLocaleDateString()}</p>
+                <p className="text-slate-500 text-[11px] mt-1">Date: {invoice.createdAt ? new Date(invoice.createdAt).toLocaleDateString() : 'Date inconnue'}</p>
               </div>
             </div>
 

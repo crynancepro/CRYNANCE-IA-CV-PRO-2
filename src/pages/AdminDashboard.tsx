@@ -64,6 +64,16 @@ export default function AdminDashboard() {
     endDate: ''
   });
 
+  const [notification, setNotification] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
+  const [confirmModal, setConfirmModal] = useState<{ message: string, onConfirm: () => void } | null>(null);
+
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => setNotification(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
+
   const fetchData = async () => {
     if (!user) return navigate('/login');
     
@@ -71,37 +81,31 @@ export default function AdminDashboard() {
       return navigate('/dashboard');
     }
 
+    setIsLoading(true);
     try {
-      const [statsRes, revenueRes, usersRes, paymentsRes, promosRes, invoicesRes, iaRes, refRes] = await Promise.all([
-        api.admin.getStats(),
-        api.admin.getRevenueStats(),
-        api.admin.getUsers(),
-        api.admin.getPayments(),
-        api.admin.getPromos(),
-        api.admin.getInvoices(),
-        api.admin.getIAStats(),
-        api.admin.getReferralStats()
-      ]);
+      const statsRes = await api.admin.getStats();
+      if (statsRes.ok) setStats(await statsRes.json());
 
-      const [statsData, revenueData, usersData, paymentsData, promosData, invoicesData, iaData, refData] = await Promise.all([
-        statsRes.json(),
-        revenueRes.json(),
-        usersRes.json(),
-        paymentsRes.json(),
-        promosRes.json(),
-        invoicesRes.json(),
-        iaRes.json(),
-        refRes.json()
-      ]);
+      const revenueRes = await api.admin.getRevenueStats();
+      if (revenueRes.ok) setRevenueStats(await revenueRes.json());
 
-      setStats(statsData);
-      setRevenueStats(revenueData);
-      setUsers(usersData);
-      setPayments(paymentsData);
-      setPromos(promosData);
-      setInvoices(invoicesData);
-      setIaStats(iaData);
-      setReferralStats(refData);
+      const usersRes = await api.admin.getUsers();
+      if (usersRes?.ok) setUsers(await usersRes.json());
+
+      const paymentsRes = await api.admin.getPayments();
+      if (paymentsRes?.ok) setPayments(await paymentsRes.json());
+
+      const promosRes = await api.admin.getPromos();
+      if (promosRes.ok) setPromos(await promosRes.json());
+
+      const invoicesRes = await api.admin.getInvoices();
+      if (invoicesRes.ok) setInvoices(await invoicesRes.json());
+
+      const iaRes = await api.admin.getIAStats();
+      if (iaRes.ok) setIaStats(await iaRes.json());
+
+      const refRes = await api.admin.getReferralStats();
+      if (refRes.ok) setReferralStats(await refRes.json());
     } catch (err) {
       console.error(err);
     } finally {
@@ -119,11 +123,12 @@ export default function AdminDashboard() {
       if (res.ok) {
         // Automatically generate invoice after confirmation
         await api.admin.generateInvoice(id);
-        alert("Paiement confirmé et facture générée !");
+        setNotification({ message: "Paiement confirmé et facture générée !", type: 'success' });
         fetchData();
       }
     } catch (err) {
       console.error(err);
+      setNotification({ message: "Erreur lors de la confirmation", type: 'error' });
     }
   };
 
@@ -140,13 +145,14 @@ export default function AdminDashboard() {
       });
 
       if (res.ok) {
-        alert("Message envoyé !");
+        setNotification({ message: "Message envoyé !", type: 'success' });
         setMessageContent('');
         setAttachInvoiceId(null);
         setSelectedUser(null);
       }
     } catch (err) {
       console.error(err);
+      setNotification({ message: "Erreur lors de l'envoi", type: 'error' });
     } finally {
       setIsSendingMessage(false);
     }
@@ -157,55 +163,71 @@ export default function AdminDashboard() {
     try {
       const res = await api.admin.createPromo(newPromo);
       if (res.ok) {
-        alert("Code promo créé !");
+        setNotification({ message: "Code promo créé !", type: 'success' });
         setNewPromo({ code: '', discount: 0, type: 'fixed', startDate: '', endDate: '' });
         fetchData();
       }
     } catch (err) {
       console.error(err);
+      setNotification({ message: "Erreur lors de la création", type: 'error' });
     }
   };
 
   const handleDeletePromo = async (id: number) => {
-    if (!confirm("Supprimer ce code promo ?")) return;
-    try {
-      const res = await api.admin.deletePromo(id);
-      if (res.ok) {
-        fetchData();
+    setConfirmModal({
+      message: "Supprimer ce code promo ?",
+      onConfirm: async () => {
+        try {
+          const res = await api.admin.deletePromo(id);
+          if (res.ok) {
+            setNotification({ message: "Code promo supprimé !", type: 'success' });
+            fetchData();
+          }
+        } catch (err) {
+          console.error(err);
+        }
       }
-    } catch (err) {
-      console.error(err);
-    }
+    });
   };
 
   const handleBanUser = async (id: number) => {
-    if (!confirm("Êtes-vous sûr de vouloir modifier le statut de cet utilisateur ?")) return;
-    try {
-      const res = await api.admin.banUser(id);
-      if (res.ok) {
-        fetchData();
-      } else {
-        const data = await res.json();
-        alert(data.error || "Erreur lors de l'opération");
+    setConfirmModal({
+      message: "Êtes-vous sûr de vouloir modifier le statut de cet utilisateur ?",
+      onConfirm: async () => {
+        try {
+          const res = await api.admin.banUser(id);
+          if (res.ok) {
+            setNotification({ message: "Statut mis à jour !", type: 'success' });
+            fetchData();
+          } else {
+            const data = await res.json();
+            setNotification({ message: data.error || "Erreur lors de l'opération", type: 'error' });
+          }
+        } catch (err) {
+          console.error(err);
+        }
       }
-    } catch (err) {
-      console.error(err);
-    }
+    });
   };
 
   const handleDeleteUser = async (id: number) => {
-    if (!confirm("ATTENTION : Cette action est irréversible. Toutes les données de l'utilisateur seront supprimées. Continuer ?")) return;
-    try {
-      const res = await api.admin.deleteUser(id);
-      if (res.ok) {
-        fetchData();
-      } else {
-        const data = await res.json();
-        alert(data.error || "Erreur lors de la suppression");
+    setConfirmModal({
+      message: "ATTENTION : Cette action est irréversible. Toutes les données de l'utilisateur seront supprimées. Continuer ?",
+      onConfirm: async () => {
+        try {
+          const res = await api.admin.deleteUser(id);
+          if (res.ok) {
+            setNotification({ message: "Utilisateur supprimé !", type: 'success' });
+            fetchData();
+          } else {
+            const data = await res.json();
+            setNotification({ message: data.error || "Erreur lors de la suppression", type: 'error' });
+          }
+        } catch (err) {
+          console.error(err);
+        }
       }
-    } catch (err) {
-      console.error(err);
-    }
+    });
   };
 
   if (isLoading) {
@@ -221,6 +243,53 @@ export default function AdminDashboard() {
   return (
     <div className="pt-24 pb-16 px-4 bg-slate-50 min-h-screen">
       <div className="max-w-7xl mx-auto">
+        {/* Notification Toast */}
+        {notification && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className={`fixed top-24 right-4 z-50 p-4 rounded-2xl shadow-2xl border flex items-center space-x-3 ${notification.type === 'success' ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-red-50 border-red-100 text-red-600'}`}
+          >
+            {notification.type === 'success' ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />}
+            <p className="font-bold">{notification.message}</p>
+          </motion.div>
+        )}
+
+        {/* Confirmation Modal */}
+        {confirmModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="bg-white p-8 rounded-[2.5rem] shadow-2xl max-w-md w-full"
+            >
+              <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mb-6">
+                <AlertCircle size={32} />
+              </div>
+              <h3 className="text-2xl font-black text-slate-900 mb-2">Confirmation</h3>
+              <p className="text-slate-600 font-medium mb-8">{confirmModal.message}</p>
+              <div className="flex space-x-4">
+                <button
+                  onClick={() => setConfirmModal(null)}
+                  className="flex-1 px-6 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-50 transition-colors"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={() => {
+                    confirmModal.onConfirm();
+                    setConfirmModal(null);
+                  }}
+                  className="flex-1 px-6 py-3 rounded-xl font-bold bg-red-600 text-white shadow-lg shadow-red-200 hover:bg-red-700 transition-colors"
+                >
+                  Confirmer
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-12 gap-4">
           <div>
             <div className="inline-flex items-center space-x-2 bg-primary/10 text-primary px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest mb-2">
@@ -393,7 +462,7 @@ export default function AdminDashboard() {
                   <TrendingUp size={80} />
                 </div>
                 <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Revenus Aujourd'hui</p>
-                <p className="text-3xl font-black text-slate-900">{revenueStats.summary.today.toLocaleString()} FCFA</p>
+                <p className="text-3xl font-black text-slate-900">{(revenueStats.summary?.today || 0).toLocaleString()} FCFA</p>
                 <div className="mt-4 flex items-center text-emerald-500 text-xs font-bold">
                   <TrendingUp size={14} className="mr-1" />
                   <span>En direct</span>
@@ -405,7 +474,7 @@ export default function AdminDashboard() {
                   <Calendar size={80} />
                 </div>
                 <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Revenus Semaine</p>
-                <p className="text-3xl font-black text-slate-900">{revenueStats.summary.week.toLocaleString()} FCFA</p>
+                <p className="text-3xl font-black text-slate-900">{(revenueStats.summary?.week || 0).toLocaleString()} FCFA</p>
                 <p className="mt-4 text-slate-400 text-xs font-bold">7 derniers jours</p>
               </div>
 
@@ -414,8 +483,8 @@ export default function AdminDashboard() {
                   <CreditCard size={80} />
                 </div>
                 <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Revenus Mois</p>
-                <p className="text-3xl font-black text-slate-900">{revenueStats.summary.month.toLocaleString()} FCFA</p>
-                <div className={`mt-4 flex items-center text-xs font-bold ${revenueStats.performance.growth >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                <p className="text-3xl font-black text-slate-900">{(revenueStats.summary?.month || 0).toLocaleString()} FCFA</p>
+                <div className={`mt-4 flex items-center text-xs font-bold ${revenueStats.performance?.growth >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
                   <TrendingUp size={14} className={`mr-1 ${revenueStats.performance.growth < 0 ? 'rotate-180' : ''}`} />
                   <span>{revenueStats.performance.growth}% vs mois dernier</span>
                 </div>
@@ -426,7 +495,7 @@ export default function AdminDashboard() {
                   <Zap size={80} />
                 </div>
                 <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Revenus Totaux</p>
-                <p className="text-3xl font-black text-slate-900">{revenueStats.summary.total.toLocaleString()} FCFA</p>
+                <p className="text-3xl font-black text-slate-900">{(revenueStats.summary?.total || 0).toLocaleString()} FCFA</p>
                 <p className="mt-4 text-slate-400 text-xs font-bold">Depuis le lancement</p>
               </div>
             </div>
@@ -473,7 +542,7 @@ export default function AdminDashboard() {
                         axisLine={false} 
                         tickLine={false} 
                         tick={{fontSize: 10, fill: '#94a3b8'}}
-                        tickFormatter={(str) => new Date(str).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                        tickFormatter={(str) => str ? new Date(str).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : ''}
                       />
                       <YAxis 
                         axisLine={false} 
@@ -483,7 +552,7 @@ export default function AdminDashboard() {
                       />
                       <Tooltip 
                         contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                        formatter={(value: any) => [`${value.toLocaleString()} FCFA`, 'Revenu']}
+                        formatter={(value: any) => [`${(value || 0).toLocaleString()} FCFA`, 'Revenu']}
                       />
                       <Area type="monotone" dataKey="value" stroke="#2563eb" strokeWidth={3} fillOpacity={1} fill="url(#colorValue)" />
                     </AreaChart>
@@ -513,7 +582,7 @@ export default function AdminDashboard() {
                       <Tooltip 
                         cursor={{fill: '#f8fafc'}}
                         contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                        formatter={(value: any) => [`${value.toLocaleString()} FCFA`, 'Revenu']}
+                        formatter={(value: any) => [`${(value || 0).toLocaleString()} FCFA`, 'Revenu']}
                       />
                       <Bar dataKey="value" fill="#2563eb" radius={[6, 6, 0, 0]} />
                     </BarChart>
@@ -542,7 +611,7 @@ export default function AdminDashboard() {
                       />
                       <Tooltip 
                         contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                        formatter={(value: any) => [`${value.toLocaleString()} FCFA`, 'Revenu']}
+                        formatter={(value: any) => [`${(value || 0).toLocaleString()} FCFA`, 'Revenu']}
                       />
                       <Line type="stepAfter" dataKey="value" stroke="#8b5cf6" strokeWidth={4} dot={{ r: 6, fill: '#8b5cf6', strokeWidth: 2, stroke: '#fff' }} />
                     </LineChart>
@@ -699,6 +768,7 @@ export default function AdminDashboard() {
                       <th className="p-6 font-bold text-slate-500 uppercase text-xs">Utilisateur</th>
                       <th className="p-6 font-bold text-slate-500 uppercase text-xs">Contact</th>
                       <th className="p-6 font-bold text-slate-500 uppercase text-xs">Inscription</th>
+                      <th className="p-6 font-bold text-slate-500 uppercase text-xs">Accès Premium</th>
                       <th className="p-6 font-bold text-slate-500 uppercase text-xs">Rôle / Statut</th>
                       <th className="p-6 font-bold text-slate-500 uppercase text-xs text-right">Actions</th>
                     </tr>
@@ -721,7 +791,16 @@ export default function AdminDashboard() {
                           <p className="text-sm text-slate-600">{u.phone || 'N/A'}</p>
                         </td>
                         <td className="p-6">
-                          <p className="text-sm text-slate-500">{new Date(u.createdAt).toLocaleDateString()}</p>
+                          <p className="text-sm text-slate-500">{u.createdAt ? new Date(u.createdAt).toLocaleDateString() : 'Date inconnue'}</p>
+                        </td>
+                        <td className="p-6">
+                          <div className="flex flex-wrap gap-1">
+                            {u.isPremium && <span className="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-md text-[9px] font-black uppercase">Full</span>}
+                            {u.hasOptimizationAccess && <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-md text-[9px] font-black uppercase">Opti</span>}
+                            {u.hasLetterAccess && <span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded-md text-[9px] font-black uppercase">Lettre</span>}
+                            {u.hasAnalysisAccess && <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-md text-[9px] font-black uppercase">ATS</span>}
+                            {!u.isPremium && !u.hasOptimizationAccess && !u.hasLetterAccess && !u.hasAnalysisAccess && <span className="text-[9px] text-slate-400 font-bold italic">Aucun</span>}
+                          </div>
                         </td>
                         <td className="p-6">
                           <div className="flex flex-col space-y-2 items-start">
@@ -799,7 +878,7 @@ export default function AdminDashboard() {
                         <span className="font-bold text-slate-700 capitalize">{inv.planType}</span>
                       </td>
                       <td className="p-6 font-bold text-slate-900">{inv.amount} FCFA</td>
-                      <td className="p-6 text-sm text-slate-500">{new Date(inv.createdAt).toLocaleDateString()}</td>
+                      <td className="p-6 text-sm text-slate-500">{inv.createdAt ? new Date(inv.createdAt).toLocaleDateString() : 'Date inconnue'}</td>
                       <td className="p-6">
                         <div className="flex items-center space-x-2">
                           <button 
@@ -857,7 +936,7 @@ export default function AdminDashboard() {
                         <span className="font-bold text-slate-700 capitalize">{p.planType}</span>
                       </td>
                       <td className="p-6 font-bold text-slate-900">{p.amount} FCFA</td>
-                      <td className="p-6 text-sm text-slate-500">{new Date(p.createdAt).toLocaleString()}</td>
+                      <td className="p-6 text-sm text-slate-500">{p.createdAt ? new Date(p.createdAt).toLocaleString() : 'Date inconnue'}</td>
                       <td className="p-6">
                         <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase ${p.status === 'confirmed' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
                           {p.status === 'confirmed' ? 'Confirmé' : 'En attente'}

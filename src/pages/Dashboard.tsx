@@ -5,14 +5,18 @@ import {
   FileText, Plus, Trash2, Edit, ExternalLink, 
   Loader2, User as UserIcon, CreditCard, Zap, 
   Mail, Phone, Save, Clock, HelpCircle, ArrowRight,
-  MessageSquare, Receipt, Download, Eye, Bell, Users
+  MessageSquare, Receipt, Download, Eye, Bell, Users,
+  CheckCircle2, AlertCircle, Search, ShieldCheck, Upload
 } from 'lucide-react';
 import { db } from '../firebase';
-import { collection, query, where, onSnapshot, doc, updateDoc, deleteDoc, addDoc, getDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, updateDoc, deleteDoc, addDoc, getDoc, orderBy } from 'firebase/firestore';
 import { storage } from '../utils/storage';
 import { InvoicePDF } from '../components/InvoicePDF';
+import PremiumLock from '../components/PremiumLock';
 import { Invoice, Message } from '../types';
 import { useAuth } from '../context/AuthContext';
+import api from '../services/api';
+import { scoreCV, parseCVFromFile } from '../services/geminiService';
 
 const CountdownTimer = ({ expiryDate, onExpire }: { expiryDate: string, onExpire: () => void }) => {
   const [timeLeft, setTimeLeft] = useState<string>('');
@@ -29,11 +33,16 @@ const CountdownTimer = ({ expiryDate, onExpire }: { expiryDate: string, onExpire
         return;
       }
 
-      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
       const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
       const seconds = Math.floor((diff % (1000 * 60)) / 1000);
 
-      setTimeLeft(`${hours}h ${minutes}m ${seconds}s`);
+      if (days > 0) {
+        setTimeLeft(`${days}j ${hours}h ${minutes}m`);
+      } else {
+        setTimeLeft(`${hours}h ${minutes}m ${seconds}s`);
+      }
     };
 
     calculateTime();
@@ -50,12 +59,27 @@ export default function Dashboard() {
   const [referrals, setReferrals] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
-  const [activeTab, setActiveTab] = useState<'cvs' | 'letters' | 'payments' | 'messages' | 'invoices' | 'referral' | 'profile'>('cvs');
+  const [notification, setNotification] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
+  const [confirmModal, setConfirmModal] = useState<{ message: string, onConfirm: () => void } | null>(null);
+
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => setNotification(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
+
+  const [activeTab, setActiveTab] = useState<'cvs' | 'letters' | 'payments' | 'messages' | 'invoices' | 'referral' | 'profile' | 'ats'>('cvs');
   const [payments, setPayments] = useState<any[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [previewInvoice, setPreviewInvoice] = useState<Invoice | null>(null);
+  const [selectedCvForAts, setSelectedCvForAts] = useState<any | null>(null);
+  const [atsResult, setAtsResult] = useState<any | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isParsing, setIsParsing] = useState(false);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [profileData, setProfileData] = useState({
     firstName: '',
     lastName: '',
@@ -73,8 +97,8 @@ export default function Dashboard() {
       });
       
       // Real-time listener for CVs
-      const q = query(collection(db, 'cvs'), where('userId', '==', user.uid));
-      const unsubscribeCvs = onSnapshot(q, (snapshot) => {
+      const qCvs = query(collection(db, 'cvs'), where('userId', '==', user.uid));
+      const unsubscribeCvs = onSnapshot(qCvs, (snapshot) => {
         const cvsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         setCvs(cvsData);
         setIsLoading(false);
@@ -83,7 +107,50 @@ export default function Dashboard() {
         setIsLoading(false);
       });
 
-      return () => unsubscribeCvs();
+      // Real-time listener for Letters
+      const qLetters = query(collection(db, 'cover_letters'), where('userId', '==', user.uid));
+      const unsubscribeLetters = onSnapshot(qLetters, (snapshot) => {
+        const lettersData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setLetters(lettersData);
+      }, (error) => {
+        console.error("Error fetching Letters:", error);
+      });
+
+      // Real-time listener for Payments
+      const qPayments = query(collection(db, 'payments'), where('userId', '==', user.uid), orderBy('createdAt', 'desc'));
+      const unsubscribePayments = onSnapshot(qPayments, (snapshot) => {
+        const paymentsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setPayments(paymentsData);
+      }, (error) => {
+        console.error("Error fetching Payments:", error);
+      });
+
+      // Real-time listener for Invoices
+      const qInvoices = query(collection(db, 'invoices'), where('userId', '==', user.uid), orderBy('createdAt', 'desc'));
+      const unsubscribeInvoices = onSnapshot(qInvoices, (snapshot) => {
+        const invoicesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any as Invoice));
+        setInvoices(invoicesData);
+      }, (error) => {
+        console.error("Error fetching Invoices:", error);
+      });
+
+      // Real-time listener for Messages
+      const qMessages = query(collection(db, 'messages'), where('userId', '==', user.uid), orderBy('createdAt', 'desc'));
+      const unsubscribeMessages = onSnapshot(qMessages, (snapshot) => {
+        const messagesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any as Message));
+        setMessages(messagesData);
+        setUnreadCount(messagesData.filter(m => !m.isRead).length);
+      }, (error) => {
+        console.error("Error fetching Messages:", error);
+      });
+
+      return () => {
+        unsubscribeCvs();
+        unsubscribeLetters();
+        unsubscribePayments();
+        unsubscribeInvoices();
+        unsubscribeMessages();
+      };
     }
   }, [user]);
 
@@ -94,24 +161,72 @@ export default function Dashboard() {
     try {
       await updateDoc(doc(db, 'users', user.uid), profileData);
       await refreshProfile();
-      alert("Profil mis à jour !");
+      setNotification({ message: "Profil mis à jour !", type: 'success' });
     } catch (error) {
       console.error(error);
-      alert("Une erreur est survenue lors de la mise à jour du profil.");
+      setNotification({ message: "Une erreur est survenue lors de la mise à jour du profil.", type: 'error' });
     } finally {
       setIsSavingProfile(false);
     }
   };
 
-  const deleteCv = async (id: string) => {
-    if (!confirm("Supprimer ce CV ?")) return;
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    setIsUploadingPhoto(true);
     try {
-      await deleteDoc(doc(db, 'cvs', id));
-      alert("CV supprimé avec succès");
-    } catch (error) {
-      console.error(error);
-      alert("Une erreur est survenue lors de la suppression");
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const base64 = reader.result as string;
+        await api.auth.uploadProfilePhoto(base64);
+        await refreshProfile();
+        setNotification({ message: "Photo de profil mise à jour !", type: 'success' });
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      console.error(err);
+      setNotification({ message: "Erreur lors de l'upload de la photo", type: 'error' });
+    } finally {
+      setIsUploadingPhoto(false);
     }
+  };
+
+  const handleAtsFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsParsing(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const base64 = (reader.result as string).split(',')[1];
+        const parsedData = await parseCVFromFile(base64, file.type);
+        setSelectedCvForAts({ data: parsedData, id: 'uploaded' });
+        setNotification({ message: "CV importé pour analyse !", type: 'success' });
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      console.error(err);
+      setNotification({ message: "Erreur lors de l'importation du CV", type: 'error' });
+    } finally {
+      setIsParsing(false);
+    }
+  };
+
+  const deleteCv = async (id: string) => {
+    setConfirmModal({
+      message: "Supprimer ce CV ?",
+      onConfirm: async () => {
+        try {
+          await deleteDoc(doc(db, 'cvs', id));
+          setNotification({ message: "CV supprimé avec succès", type: 'success' });
+        } catch (error) {
+          console.error(error);
+          setNotification({ message: "Une erreur est survenue lors de la suppression", type: 'error' });
+        }
+      }
+    });
   };
 
   const saveTestCv = async () => {
@@ -123,17 +238,17 @@ export default function Dashboard() {
         content: "Contenu du CV test",
         createdAt: new Date().toISOString()
       });
-      alert("CV test enregistré avec succès !");
+      setNotification({ message: "CV test enregistré avec succès !", type: 'success' });
     } catch (error) {
       console.error("Error saving CV:", error);
-      alert("Erreur lors de l'enregistrement du CV.");
+      setNotification({ message: "Erreur lors de l'enregistrement du CV.", type: 'error' });
     }
   };
 
   const deleteLetter = async (id: string) => {
     if (!confirm("Supprimer cette lettre ?")) return;
     try {
-      await deleteDoc(doc(db, 'letters', id));
+      await deleteDoc(doc(db, 'cover_letters', id));
       alert("Lettre supprimée avec succès");
     } catch (error) {
       console.error(error);
@@ -157,7 +272,54 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="pt-24 pb-16 px-4">
+    <div className="pt-24 pb-16 px-4 bg-slate-50 min-h-screen">
+      {/* Notification Toast */}
+      {notification && (
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -20 }}
+          className={`fixed top-24 right-4 z-50 p-4 rounded-2xl shadow-2xl border flex items-center space-x-3 ${notification.type === 'success' ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-red-50 border-red-100 text-red-600'}`}
+        >
+          {notification.type === 'success' ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />}
+          <p className="font-bold">{notification.message}</p>
+        </motion.div>
+      )}
+
+      {/* Confirmation Modal */}
+      {confirmModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-white p-8 rounded-[2.5rem] shadow-2xl max-w-md w-full"
+          >
+            <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mb-6">
+              <AlertCircle size={32} />
+            </div>
+            <h3 className="text-2xl font-black text-slate-900 mb-2">Confirmation</h3>
+            <p className="text-slate-600 font-medium mb-8">{confirmModal.message}</p>
+            <div className="flex space-x-4">
+              <button
+                onClick={() => setConfirmModal(null)}
+                className="flex-1 px-6 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-50 transition-colors"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={() => {
+                  confirmModal.onConfirm();
+                  setConfirmModal(null);
+                }}
+                className="flex-1 px-6 py-3 rounded-xl font-bold bg-red-600 text-white shadow-lg shadow-red-200 hover:bg-red-700 transition-colors"
+              >
+                Confirmer
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-12 gap-6">
           <div>
@@ -228,6 +390,12 @@ export default function Dashboard() {
             Parrainage
           </button>
           <button 
+            onClick={() => setActiveTab('ats')}
+            className={`pb-4 px-2 text-sm font-bold transition-all border-b-2 ${activeTab === 'ats' ? 'border-primary text-primary' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+          >
+            Analyse ATS
+          </button>
+          <button 
             onClick={() => setActiveTab('messages')}
             className={`pb-4 px-2 text-sm font-bold transition-all border-b-2 relative ${activeTab === 'messages' ? 'border-primary text-primary' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
           >
@@ -243,15 +411,30 @@ export default function Dashboard() {
           <div className="lg:col-span-1">
             <div className="bg-white p-6 rounded-3xl shadow-xl border border-slate-100 space-y-6 sticky top-24">
               <div className="flex flex-col items-center text-center">
-                <div className="w-20 h-20 bg-slate-100 rounded-2xl flex items-center justify-center text-slate-400 mb-4">
-                  <UserIcon size={40} />
+                <div className="relative group">
+                  <div className="w-24 h-24 bg-slate-100 rounded-[2rem] flex items-center justify-center text-slate-400 mb-4 overflow-hidden border-4 border-white shadow-xl">
+                    {user?.photoURL ? (
+                      <img src={user.photoURL} alt="Profile" className="w-full h-full object-cover" />
+                    ) : (
+                      <UserIcon size={40} />
+                    )}
+                    {isUploadingPhoto && (
+                      <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white">
+                        <Loader2 className="animate-spin" size={24} />
+                      </div>
+                    )}
+                  </div>
+                  <label htmlFor="photo-upload" className="absolute bottom-2 right-0 w-8 h-8 bg-primary text-white rounded-xl flex items-center justify-center cursor-pointer shadow-lg hover:scale-110 transition-transform">
+                    <Plus size={16} />
+                    <input type="file" id="photo-upload" className="hidden" accept="image/*" onChange={handlePhotoUpload} />
+                  </label>
                 </div>
                 <h3 className="font-bold text-slate-900">{user?.firstName} {user?.lastName}</h3>
                 <p className="text-sm text-slate-500">{user?.email}</p>
                 {(user?.modernExpiresAt && new Date(user.modernExpiresAt) > new Date()) || 
                  (user?.classicExpiresAt && new Date(user.classicExpiresAt) > new Date()) || 
                  (user?.creativeExpiresAt && new Date(user.creativeExpiresAt) > new Date()) || 
-                 user?.isPremium ? (
+                 user?.isPremium || user?.role === 'admin' ? (
                   <span className="mt-2 px-3 py-1 bg-emerald-100 text-emerald-700 text-[10px] font-black uppercase rounded-full">Premium Pro Actif</span>
                 ) : (
                   <span className="mt-2 px-3 py-1 bg-slate-100 text-slate-500 text-[10px] font-black uppercase rounded-full">Compte Gratuit</span>
@@ -311,7 +494,176 @@ export default function Dashboard() {
 
           {/* Main Content */}
           <div className="lg:col-span-3">
-            {activeTab === 'referral' && (
+            {activeTab === 'ats' && (
+          <div className="space-y-8">
+            <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
+              <div className="flex items-center justify-between mb-8">
+                <div>
+                  <h2 className="text-2xl font-black text-slate-900">Analyse & Score ATS</h2>
+                  <p className="text-slate-500">Évaluez la performance de votre CV face aux algorithmes de recrutement.</p>
+                </div>
+                <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center">
+                  <ShieldCheck size={28} />
+                </div>
+                  <PremiumLock 
+          feature="analysis"
+          title="Analyse ATS"
+          description="Découvrez comment les logiciels de recrutement voient votre CV et obtenez des conseils."
+          price={200}
+        >
+          <div className="grid md:grid-cols-2 gap-8">
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <label className="text-sm font-black text-slate-400 uppercase tracking-widest">Sélectionnez un CV à analyser</label>
+                <div className="relative">
+                  <input type="file" id="ats-upload" className="hidden" accept=".pdf,.doc,.docx,image/*" onChange={handleAtsFileUpload} />
+                  <label htmlFor="ats-upload" className="flex items-center space-x-2 text-primary hover:text-primary/80 cursor-pointer font-bold text-xs">
+                    {isParsing ? <Loader2 className="animate-spin" size={12} /> : <Upload size={12} />}
+                    <span>Importer un fichier</span>
+                  </label>
+                </div>
+              </div>
+              <div className="space-y-3">
+                {selectedCvForAts?.id === 'uploaded' && (
+                  <button
+                    onClick={() => setSelectedCvForAts(selectedCvForAts)}
+                    className="w-full p-4 rounded-2xl border text-left transition-all flex items-center justify-between border-primary bg-primary/5 ring-2 ring-primary/10"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-primary text-white">
+                        <FileText size={20} />
+                      </div>
+                      <div>
+                        <p className="font-bold text-slate-900">CV Importé</p>
+                        <p className="text-xs text-slate-500">Prêt pour l'analyse</p>
+                      </div>
+                    </div>
+                    <CheckCircle2 size={20} className="text-primary" />
+                  </button>
+                )}
+                {cvs.length === 0 && !selectedCvForAts ? (
+                  <p className="text-slate-500 text-sm italic">Aucun CV trouvé. Créez-en un d'abord.</p>
+                ) : (
+                  cvs.map((cv) => (
+                    <button
+                      key={cv.id}
+                      onClick={() => setSelectedCvForAts(cv)}
+                      className={`w-full p-4 rounded-2xl border text-left transition-all flex items-center justify-between group ${selectedCvForAts?.id === cv.id ? 'border-primary bg-primary/5 ring-2 ring-primary/10' : 'border-slate-100 hover:border-slate-200 bg-slate-50'}`}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${selectedCvForAts?.id === cv.id ? 'bg-primary text-white' : 'bg-white text-slate-400'}`}>
+                          <FileText size={20} />
+                        </div>
+                        <div>
+                          <p className="font-bold text-slate-900">{cv.data.firstName} {cv.data.lastName}</p>
+                          <p className="text-xs text-slate-500">{cv.data.jobTitle}</p>
+                        </div>
+                      </div>
+                      {selectedCvForAts?.id === cv.id && <CheckCircle2 size={20} className="text-primary" />}
+                    </button>
+                  ))
+                )}
+              </div>
+
+              <button
+                disabled={!selectedCvForAts || isAnalyzing}
+                onClick={async () => {
+                  if (!selectedCvForAts) return;
+                  setIsAnalyzing(true);
+                  try {
+                    // Consommer un crédit
+                    const consumeRes = await api.ia.consume('analysis');
+                    if (!consumeRes.ok) {
+                      const err = await consumeRes.json();
+                      throw new Error(err.error || "Erreur lors de la consommation du crédit");
+                    }
+
+                    const result = await scoreCV(selectedCvForAts.data);
+                    setAtsResult(result);
+                    setNotification({ message: "Analyse terminée !", type: 'success' });
+                  } catch (err: any) {
+                    console.error(err);
+                    setNotification({ message: err.message || "Erreur lors de l'analyse", type: 'error' });
+                  } finally {
+                    setIsAnalyzing(false);
+                  }
+                }}
+                className="w-full mt-8 bg-slate-900 text-white py-4 rounded-2xl font-black flex items-center justify-center space-x-3 hover:bg-primary transition-all shadow-xl shadow-slate-200 disabled:opacity-50"
+              >
+                {isAnalyzing ? <Loader2 className="animate-spin" size={20} /> : <Zap size={20} />}
+                <span>Lancer l'analyse ATS</span>
+              </button>
+            </div>
+
+            <div className="bg-slate-50 rounded-[2rem] p-8 border border-slate-100 min-h-[400px] flex flex-col items-center justify-center text-center">
+              {atsResult ? (
+                <div className="w-full text-left space-y-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-xl font-black text-slate-900">Résultats de l'analyse</h3>
+                    <div className={`px-4 py-2 rounded-2xl font-black text-2xl ${atsResult.score >= 80 ? 'bg-emerald-100 text-emerald-600' : atsResult.score >= 60 ? 'bg-amber-100 text-amber-600' : 'bg-red-100 text-red-600'}`}>
+                      {atsResult.score}/100
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center space-x-2">
+                        <CheckCircle2 size={14} className="text-emerald-500" />
+                        <span>Points Forts</span>
+                      </h4>
+                      <ul className="space-y-2">
+                        {atsResult.strengths.map((s: string, i: number) => (
+                          <li key={i} className="text-sm text-slate-700 flex items-start space-x-2">
+                            <span className="text-emerald-500 mt-1">•</span>
+                            <span>{s}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    <div>
+                      <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center space-x-2">
+                        <AlertCircle size={14} className="text-amber-500" />
+                        <span>Points d'amélioration</span>
+                      </h4>
+                      <ul className="space-y-2">
+                        {atsResult.weaknesses.map((w: string, i: number) => (
+                          <li key={i} className="text-sm text-slate-700 flex items-start space-x-2">
+                            <span className="text-amber-500 mt-1">•</span>
+                            <span>{w}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    <div className="p-4 bg-primary/5 rounded-2xl border border-primary/10">
+                      <h4 className="text-xs font-black text-primary uppercase tracking-widest mb-2">Conseil d'expert</h4>
+                      <p className="text-sm text-slate-700 italic">
+                        {atsResult.advice[0]}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="w-20 h-20 bg-white rounded-3xl shadow-sm flex items-center justify-center text-slate-300 mb-6">
+                    <Search size={40} />
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-900 mb-2">En attente d'analyse</h3>
+                  <p className="text-slate-500 text-sm max-w-xs">
+                    Sélectionnez un CV et cliquez sur le bouton pour obtenir votre score ATS et des conseils personnalisés.
+                  </p>
+                </>
+              )}
+            </div>
+          </div>
+        </PremiumLock>
+      </div>
+    </div>
+  </div>
+)}
+
+        {activeTab === 'referral' && (
           <div className="space-y-8">
             <div className="bg-slate-900 rounded-[2.5rem] p-10 md:p-16 relative overflow-hidden text-white">
               <div className="absolute top-0 right-0 -mt-20 -mr-20 w-64 h-64 bg-primary/20 rounded-full blur-3xl"></div>
@@ -372,7 +724,7 @@ export default function Dashboard() {
                       <div key={ref.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
                         <div>
                           <p className="font-bold text-slate-900">{ref.firstName} {ref.lastName}</p>
-                          <p className="text-xs text-slate-500">{new Date(ref.createdAt).toLocaleDateString()}</p>
+                          <p className="text-xs text-slate-500">{ref.createdAt ? new Date(ref.createdAt).toLocaleDateString() : 'Date inconnue'}</p>
                         </div>
                         {ref.rewardGranted ? (
                           <span className="bg-emerald-100 text-emerald-700 text-[10px] font-black px-2 py-1 rounded-full uppercase">
@@ -400,6 +752,14 @@ export default function Dashboard() {
                   <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100 text-center">
                     <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Lettres Restantes</p>
                     <p className="text-3xl font-black text-slate-900">{user?.letterGenerationsRemaining || 0}</p>
+                  </div>
+                  <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100 text-center">
+                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Optimisations</p>
+                    <p className="text-3xl font-black text-slate-900">{user?.optimizationGenerationsRemaining || 0}</p>
+                  </div>
+                  <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100 text-center">
+                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Analyses ATS</p>
+                    <p className="text-3xl font-black text-slate-900">{user?.analysisGenerationsRemaining || 0}</p>
                   </div>
                 </div>
                 <div className="mt-6 p-4 bg-amber-50 border border-amber-100 rounded-2xl">
@@ -437,7 +797,7 @@ export default function Dashboard() {
                           </div>
                         </div>
                         <h3 className="font-bold text-slate-900 mb-1">{cv.data.firstName} {cv.data.lastName}</h3>
-                        <p className="text-sm text-slate-500 mb-4">Modifié le {new Date(cv.createdAt).toLocaleDateString()}</p>
+                        <p className="text-sm text-slate-500 mb-4">Modifié le {cv.createdAt ? new Date(cv.createdAt).toLocaleDateString() : 'Date inconnue'}</p>
                         <button 
                           onClick={() => {
                             storage.saveCV(cv.data);
@@ -494,7 +854,7 @@ export default function Dashboard() {
                           </div>
                         </div>
                         <h3 className="font-bold text-slate-900 mb-1">{letter.data.jobTitle || "Lettre de motivation"}</h3>
-                        <p className="text-sm text-slate-500 mb-4">Modifiée le {new Date(letter.createdAt).toLocaleDateString()}</p>
+                        <p className="text-sm text-slate-500 mb-4">Modifiée le {letter.createdAt ? new Date(letter.createdAt).toLocaleDateString() : 'Date inconnue'}</p>
                         <button 
                           onClick={() => {
                             storage.saveLetterContent({ id: letter.id, data: letter.data, content: letter.content });
@@ -600,7 +960,7 @@ export default function Dashboard() {
                               <span className="text-slate-600">{p.amount} FCFA</span>
                             </td>
                             <td className="py-4">
-                              <span className="text-slate-500 text-sm">{new Date(p.createdAt).toLocaleDateString()}</span>
+                              <span className="text-slate-500 text-sm">{p.createdAt ? new Date(p.createdAt).toLocaleDateString() : 'Date inconnue'}</span>
                             </td>
                             <td className="py-4">
                               <span className={`px-2 py-1 rounded-lg text-[10px] font-bold uppercase ${
@@ -647,7 +1007,7 @@ export default function Dashboard() {
                               <span className="font-bold text-slate-700 capitalize">{inv.planType}</span>
                             </td>
                             <td className="py-4 font-bold text-slate-900">{inv.amount} FCFA</td>
-                            <td className="py-4 text-slate-500 text-sm">{new Date(inv.createdAt).toLocaleDateString()}</td>
+                            <td className="py-4 text-slate-500 text-sm">{inv.createdAt ? new Date(inv.createdAt).toLocaleDateString() : 'Date inconnue'}</td>
                             <td className="py-4">
                               <button 
                                 onClick={() => setPreviewInvoice(inv)}
@@ -690,7 +1050,7 @@ export default function Dashboard() {
                             </div>
                             <div>
                               <p className="font-bold text-slate-900">Administrateur CRYNANCE</p>
-                              <p className="text-xs text-slate-500">{new Date(msg.createdAt).toLocaleString()}</p>
+                              <p className="text-xs text-slate-500">{msg.createdAt ? new Date(msg.createdAt).toLocaleString() : 'Date inconnue'}</p>
                             </div>
                           </div>
                           {!msg.isRead && (

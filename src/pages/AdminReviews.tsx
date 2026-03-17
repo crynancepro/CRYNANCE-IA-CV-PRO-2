@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 export default function AdminReviews() {
   const [reviews, setReviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [confirmModal, setConfirmModal] = useState<{ message: string, onConfirm: () => void } | null>(null);
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -44,21 +45,59 @@ export default function AdminReviews() {
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm("Supprimer cet avis ?")) return;
-    try {
-      const res = await api.admin.deleteReview(id);
-      if (res.ok) {
-        fetchReviews();
+    setConfirmModal({
+      message: "Supprimer cet avis ?",
+      onConfirm: async () => {
+        try {
+          const res = await api.admin.deleteReview(id);
+          if (res.ok) {
+            fetchReviews();
+          }
+        } catch (err) {
+          console.error(err);
+        }
       }
-    } catch (err) {
-      console.error(err);
-    }
+    });
   };
 
   if (loading) return <div className="p-8 text-center">Chargement...</div>;
 
   return (
     <div className="p-4 md:p-8">
+      {/* Confirmation Modal */}
+      {confirmModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-white p-8 rounded-[2.5rem] shadow-2xl max-w-md w-full"
+          >
+            <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mb-6">
+              <Star size={32} />
+            </div>
+            <h3 className="text-2xl font-black text-slate-900 mb-2">Confirmation</h3>
+            <p className="text-slate-600 font-medium mb-8">{confirmModal.message}</p>
+            <div className="flex space-x-4">
+              <button
+                onClick={() => setConfirmModal(null)}
+                className="flex-1 px-6 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-50 transition-colors"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={() => {
+                  confirmModal.onConfirm();
+                  setConfirmModal(null);
+                }}
+                className="flex-1 px-6 py-3 rounded-xl font-bold bg-red-600 text-white shadow-lg shadow-red-200 hover:bg-red-700 transition-colors"
+              >
+                Confirmer
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
       <div className="flex justify-between items-center mb-8">
         <div>
           <h1 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Gestion des Avis</h1>
@@ -98,7 +137,7 @@ export default function AdminReviews() {
                   </div>
                   <div className="flex items-center space-x-1">
                     <Clock size={12} />
-                    <span>{new Date(review.createdAt).toLocaleDateString()}</span>
+                    <span>{review.createdAt ? new Date(review.createdAt).toLocaleDateString() : 'Date inconnue'}</span>
                   </div>
                 </div>
               </div>

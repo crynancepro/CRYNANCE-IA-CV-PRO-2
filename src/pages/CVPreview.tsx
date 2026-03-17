@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { Download, FileText, FileDown, CheckCircle2, AlertCircle, Sparkles, Loader2, ChevronLeft, Save, Zap, Edit3, RefreshCw, Mail, Phone, MapPin, Globe, Star, Maximize2, Plus, Languages } from 'lucide-react';
+import { Download, FileText, FileDown, CheckCircle2, AlertCircle, Sparkles, Loader2, ChevronLeft, Save, Zap, Edit3, RefreshCw, Mail, Phone, MapPin, Globe, Star, Maximize2, Plus, Languages, Cpu, CheckCircle, Heart } from 'lucide-react';
 import { api } from '../services/api';
 import { CVData, CVScore } from '../types';
 import { scoreCV, generateProfessionalCV, modifyCVWithAI } from '../services/geminiService';
@@ -1968,6 +1968,26 @@ const CreativeTemplate = ({ data, onUpdate, onRemoveSection }: { data: CVData, o
             </section>
           </DraggableSection>
         );
+      case 'profile':
+        return (
+          <DraggableSection key={id} id={id} onRemove={() => onRemoveSection(id)}>
+            <section className="relative">
+              <div className="absolute -left-4 top-0 w-1 h-full bg-primary rounded-full opacity-50"></div>
+              <Editable 
+                text={data.sections?.profile || 'PROFIL'} 
+                className="text-sm font-black uppercase tracking-widest mb-4 text-slate-900 flex items-center" 
+                onSave={(val) => onUpdate({ sections: { ...data.sections!, profile: val } })} 
+              />
+              <div className="bg-white/50 backdrop-blur-sm p-4 rounded-2xl border border-slate-100 italic text-slate-600 leading-relaxed shadow-sm">
+                <Editable 
+                  text={data.profile} 
+                  multiline 
+                  onSave={(val) => onUpdate({ profile: val })} 
+                />
+              </div>
+            </section>
+          </DraggableSection>
+        );
       case 'skills':
         return (
           <DraggableSection key={id} id={id} onRemove={() => onRemoveSection(id)}>
@@ -1987,6 +2007,32 @@ const CreativeTemplate = ({ data, onUpdate, onRemoveSection }: { data: CVData, o
                       const newS = [...data.skills];
                       newS[i] = val;
                       onUpdate({ skills: newS });
+                    }} 
+                  />
+                ))}
+              </div>
+            </section>
+          </DraggableSection>
+        );
+      case 'itSkills':
+        return (
+          <DraggableSection key={id} id={id} onRemove={() => onRemoveSection(id)}>
+            <section>
+              <Editable 
+                text={data.sections?.itSkills || 'INFORMATIQUE'} 
+                className="text-sm font-black uppercase tracking-widest mb-4" 
+                onSave={(val) => onUpdate({ sections: { ...data.sections!, itSkills: val } })} 
+              />
+              <div className="flex flex-wrap gap-2">
+                {data.itSkills?.map((s, i) => (
+                  <Editable 
+                    key={i} 
+                    text={s} 
+                    className="bg-slate-100 text-slate-700 px-3 py-1 rounded-full text-xs font-bold border border-slate-200" 
+                    onSave={(val) => {
+                      const newS = [...data.itSkills];
+                      newS[i] = val;
+                      onUpdate({ itSkills: newS });
                     }} 
                   />
                 ))}
@@ -2267,10 +2313,7 @@ const CreativeTemplate = ({ data, onUpdate, onRemoveSection }: { data: CVData, o
 };
 
 const BlueTemplate = ({ data, onUpdate, onRemoveSection }: { data: CVData, onUpdate: (d: Partial<CVData>) => void, onRemoveSection: (id: string) => void }) => {
-  const layout = data.layout || {
-    left: ['contact', 'education', 'skills'],
-    right: ['profile', 'experiences']
-  };
+  const layout = data.layout || getDefaultLayout(data.template);
 
   const renderSection = (id: string) => {
     switch (id) {
@@ -2369,6 +2412,66 @@ const BlueTemplate = ({ data, onUpdate, onRemoveSection }: { data: CVData, onUpd
                       onUpdate({ languagesList: newList });
                     }} />
                   </div>
+                ))}
+              </div>
+            </section>
+          </DraggableSection>
+        );
+      case 'itSkills':
+        return (
+          <DraggableSection key={id} id={id} onRemove={() => onRemoveSection(id)}>
+            <section className="mb-8">
+              <h2 className="text-sm font-black text-[#2d4a63] uppercase tracking-widest border-b-2 border-[#2d4a63] pb-1 mb-4">
+                <Editable text={data.sections?.itSkills || 'Informatique'} onSave={(val) => onUpdate({ sections: { ...data.sections!, itSkills: val } })} />
+              </h2>
+              <div className="flex flex-wrap gap-2">
+                {data.itSkills?.map((s, i) => (
+                  <Editable key={i} text={s} className="text-sm text-slate-700 bg-slate-50 px-2 py-1 rounded border border-slate-100" onSave={(val) => {
+                    const newSkills = [...data.itSkills];
+                    newSkills[i] = val;
+                    onUpdate({ itSkills: newSkills });
+                  }} />
+                ))}
+              </div>
+            </section>
+          </DraggableSection>
+        );
+      case 'qualities':
+        return (
+          <DraggableSection key={id} id={id} onRemove={() => onRemoveSection(id)}>
+            <section className="mb-8 break-inside-avoid">
+              <h2 className="text-sm font-black text-[#2d4a63] uppercase tracking-widest border-b-2 border-[#2d4a63] pb-1 mb-4">
+                <Editable text={data.sections?.qualities || 'Qualités'} onSave={(val) => onUpdate({ sections: { ...data.sections!, qualities: val } })} />
+              </h2>
+              <div className="space-y-2">
+                {data.qualities?.map((q, i) => (
+                  <div key={i} className="flex items-center space-x-2">
+                    <div className="w-1.5 h-1.5 bg-[#2d4a63] rounded-full"></div>
+                    <Editable text={q} className="text-sm text-slate-700" onSave={(val) => {
+                      const newQ = [...data.qualities];
+                      newQ[i] = val;
+                      onUpdate({ qualities: newQ });
+                    }} />
+                  </div>
+                ))}
+              </div>
+            </section>
+          </DraggableSection>
+        );
+      case 'interests':
+        return (
+          <DraggableSection key={id} id={id} onRemove={() => onRemoveSection(id)}>
+            <section className="mb-8 break-inside-avoid">
+              <h2 className="text-sm font-black text-[#2d4a63] uppercase tracking-widest border-b-2 border-[#2d4a63] pb-1 mb-4">
+                <Editable text={data.sections?.interests || 'Centres d’intérêt'} onSave={(val) => onUpdate({ sections: { ...data.sections!, interests: val } })} />
+              </h2>
+              <div className="flex flex-wrap gap-2">
+                {data.interests?.map((item, i) => (
+                  <Editable key={i} text={item} className="text-sm text-slate-700 bg-slate-50 px-2 py-1 rounded border border-slate-100" onSave={(val) => {
+                    const newI = [...data.interests];
+                    newI[i] = val;
+                    onUpdate({ interests: newI });
+                  }} />
                 ))}
               </div>
             </section>
@@ -2687,6 +2790,70 @@ const PinkTemplate = ({ data, onUpdate, onRemoveSection }: { data: CVData, onUpd
             </section>
           </DraggableSection>
         );
+      case 'itSkills':
+        return (
+          <DraggableSection key={id} id={id} onRemove={() => onRemoveSection(id)}>
+            <section className="mb-10">
+              <h2 className="text-2xl font-black text-slate-800 mb-4">
+                <Editable text={data.sections?.itSkills || 'Informatique'} onSave={(val) => onUpdate({ sections: { ...data.sections!, itSkills: val } })} />
+              </h2>
+              <div className="flex flex-wrap gap-2">
+                {data.itSkills?.map((s, i) => (
+                  <div key={i} className="px-3 py-1 bg-slate-50 border border-slate-200 rounded text-sm text-slate-700">
+                    <Editable text={s} onSave={(val) => {
+                      const newSkills = [...data.itSkills];
+                      newSkills[i] = val;
+                      onUpdate({ itSkills: newSkills });
+                    }} />
+                  </div>
+                ))}
+              </div>
+            </section>
+          </DraggableSection>
+        );
+      case 'qualities':
+        return (
+          <DraggableSection key={id} id={id} onRemove={() => onRemoveSection(id)}>
+            <section className="mb-10 break-inside-avoid">
+              <h2 className="text-2xl font-black text-slate-800 mb-4">
+                <Editable text={data.sections?.qualities || 'Qualités'} onSave={(val) => onUpdate({ sections: { ...data.sections!, qualities: val } })} />
+              </h2>
+              <div className="space-y-2">
+                {data.qualities?.map((q, i) => (
+                  <div key={i} className="flex items-center space-x-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#e8b4b8]"></span>
+                    <Editable text={q} className="text-sm text-slate-600" onSave={(val) => {
+                      const newQ = [...data.qualities];
+                      newQ[i] = val;
+                      onUpdate({ qualities: newQ });
+                    }} />
+                  </div>
+                ))}
+              </div>
+            </section>
+          </DraggableSection>
+        );
+      case 'interests':
+        return (
+          <DraggableSection key={id} id={id} onRemove={() => onRemoveSection(id)}>
+            <section className="mb-10 break-inside-avoid">
+              <h2 className="text-2xl font-black text-slate-800 mb-4">
+                <Editable text={data.sections?.interests || 'Centres d’intérêt'} onSave={(val) => onUpdate({ sections: { ...data.sections!, interests: val } })} />
+              </h2>
+              <div className="flex flex-wrap gap-2">
+                {data.interests?.map((item, i) => (
+                  <div key={i} className="px-3 py-1 bg-slate-50 border border-slate-200 rounded text-sm text-slate-700">
+                    <Editable text={item} onSave={(val) => {
+                      const newI = [...data.interests];
+                      newI[i] = val;
+                      onUpdate({ interests: newI });
+                    }} />
+                  </div>
+                ))}
+              </div>
+            </section>
+          </DraggableSection>
+        );
       default:
         if (id.startsWith('custom_')) {
           const custom = data.customSections?.find(s => s.id === id);
@@ -2840,6 +3007,70 @@ const DarkTemplate = ({ data, onUpdate, onRemoveSection }: { data: CVData, onUpd
                       const newList = [...data.languagesList];
                       newList[i].level = val;
                       onUpdate({ languagesList: newList });
+                    }} />
+                  </div>
+                ))}
+              </div>
+            </section>
+          </DraggableSection>
+        );
+      case 'itSkills':
+        return (
+          <DraggableSection key={id} id={id} onRemove={() => onRemoveSection(id)}>
+            <section className="bg-white/5 backdrop-blur-md border border-white/10 rounded-3xl p-6">
+              <h2 className="text-sm font-black uppercase tracking-widest text-purple-400 mb-6 border-b border-white/10 pb-2">
+                <Editable text={data.sections?.itSkills || 'Informatique'} onSave={(val) => onUpdate({ sections: { ...data.sections!, itSkills: val } })} />
+              </h2>
+              <div className="flex flex-wrap gap-2">
+                {data.itSkills?.map((s, i) => (
+                  <div key={i} className="bg-white/5 border border-white/10 px-3 py-1.5 rounded-xl text-xs font-bold text-white/80">
+                    <Editable text={s} onSave={(val) => {
+                      const newSkills = [...data.itSkills];
+                      newSkills[i] = val;
+                      onUpdate({ itSkills: newSkills });
+                    }} />
+                  </div>
+                ))}
+              </div>
+            </section>
+          </DraggableSection>
+        );
+      case 'qualities':
+        return (
+          <DraggableSection key={id} id={id} onRemove={() => onRemoveSection(id)}>
+            <section className="bg-white/5 backdrop-blur-md border border-white/10 rounded-3xl p-6 break-inside-avoid">
+              <h2 className="text-sm font-black uppercase tracking-widest text-purple-400 mb-6 border-b border-white/10 pb-2">
+                <Editable text={data.sections?.qualities || 'Qualités'} onSave={(val) => onUpdate({ sections: { ...data.sections!, qualities: val } })} />
+              </h2>
+              <div className="space-y-2">
+                {data.qualities?.map((q, i) => (
+                  <div key={i} className="flex items-center space-x-2">
+                    <div className="w-1.5 h-1.5 bg-purple-400 rounded-full"></div>
+                    <Editable text={q} className="text-sm text-white/70" onSave={(val) => {
+                      const newQ = [...data.qualities];
+                      newQ[i] = val;
+                      onUpdate({ qualities: newQ });
+                    }} />
+                  </div>
+                ))}
+              </div>
+            </section>
+          </DraggableSection>
+        );
+      case 'interests':
+        return (
+          <DraggableSection key={id} id={id} onRemove={() => onRemoveSection(id)}>
+            <section className="bg-white/5 backdrop-blur-md border border-white/10 rounded-3xl p-6 break-inside-avoid">
+              <h2 className="text-sm font-black uppercase tracking-widest text-purple-400 mb-6 border-b border-white/10 pb-2">
+                <Editable text={data.sections?.interests || 'Centres d’intérêt'} onSave={(val) => onUpdate({ sections: { ...data.sections!, interests: val } })} />
+              </h2>
+              <div className="flex flex-wrap gap-2">
+                {data.interests?.map((item, i) => (
+                  <div key={i} className="bg-white/5 border border-white/10 px-3 py-1.5 rounded-xl text-xs font-bold text-white/80">
+                    <Editable text={item} onSave={(val) => {
+                      const newI = [...data.interests];
+                      newI[i] = val;
+                      onUpdate({ interests: newI });
                     }} />
                   </div>
                 ))}
@@ -3163,10 +3394,7 @@ const DarkGoldTemplate = ({ data, onUpdate, onRemoveSection }: { data: CVData, o
 };
 
 const DarkMinimalTemplate = ({ data, onUpdate, onRemoveSection }: { data: CVData, onUpdate: (d: Partial<CVData>) => void, onRemoveSection: (id: string) => void }) => {
-  const layout = data.layout || {
-    left: ['contact', 'skills', 'education', 'languages'],
-    right: ['profile', 'experiences', 'references']
-  };
+  const layout = data.layout || getDefaultLayout(data.template);
 
   const renderSection = (id: string) => {
     switch (id) {
@@ -3272,6 +3500,66 @@ const DarkMinimalTemplate = ({ data, onUpdate, onRemoveSection }: { data: CVData
                       onUpdate({ languagesList: newList });
                     }} />
                   </div>
+                ))}
+              </div>
+            </section>
+          </DraggableSection>
+        );
+      case 'itSkills':
+        return (
+          <DraggableSection key={id} id={id} onRemove={() => onRemoveSection(id)}>
+            <section className="mb-8">
+              <div className="bg-white text-[#1a2b4b] px-4 py-1.5 rounded-full text-center font-bold uppercase tracking-widest text-xs mb-6">
+                <Editable text={data.sections?.itSkills || 'Informatique'} onSave={(val) => onUpdate({ sections: { ...data.sections!, itSkills: val } })} />
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {data.itSkills?.map((s, i) => (
+                  <Editable key={i} text={s} className="border border-white/40 px-3 py-1 rounded-full text-xs text-white" onSave={(val) => {
+                    const newSkills = [...data.itSkills];
+                    newSkills[i] = val;
+                    onUpdate({ itSkills: newSkills });
+                  }} />
+                ))}
+              </div>
+            </section>
+          </DraggableSection>
+        );
+      case 'qualities':
+        return (
+          <DraggableSection key={id} id={id} onRemove={() => onRemoveSection(id)}>
+            <section className="mb-8">
+              <div className="bg-white text-[#1a2b4b] px-4 py-1.5 rounded-full text-center font-bold uppercase tracking-widest text-xs mb-6">
+                <Editable text={data.sections?.qualities || 'Qualités'} onSave={(val) => onUpdate({ sections: { ...data.sections!, qualities: val } })} />
+              </div>
+              <div className="space-y-2 text-sm text-white/80">
+                {data.qualities?.map((q, i) => (
+                  <div key={i} className="flex items-start space-x-2">
+                    <span className="text-white">•</span>
+                    <Editable text={q} onSave={(val) => {
+                      const newQ = [...data.qualities];
+                      newQ[i] = val;
+                      onUpdate({ qualities: newQ });
+                    }} />
+                  </div>
+                ))}
+              </div>
+            </section>
+          </DraggableSection>
+        );
+      case 'interests':
+        return (
+          <DraggableSection key={id} id={id} onRemove={() => onRemoveSection(id)}>
+            <section className="mb-8">
+              <div className="bg-white text-[#1a2b4b] px-4 py-1.5 rounded-full text-center font-bold uppercase tracking-widest text-xs mb-6">
+                <Editable text={data.sections?.interests || 'Intérêts'} onSave={(val) => onUpdate({ sections: { ...data.sections!, interests: val } })} />
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {data.interests?.map((item, i) => (
+                  <Editable key={i} text={item} className="border border-white/40 px-3 py-1 rounded-full text-xs text-white" onSave={(val) => {
+                    const newI = [...data.interests];
+                    newI[i] = val;
+                    onUpdate({ interests: newI });
+                  }} />
                 ))}
               </div>
             </section>
@@ -3404,10 +3692,7 @@ const DarkMinimalTemplate = ({ data, onUpdate, onRemoveSection }: { data: CVData
 };
 
 const CreativeGradientTemplate = ({ data, onUpdate, onRemoveSection }: { data: CVData, onUpdate: (d: Partial<CVData>) => void, onRemoveSection: (id: string) => void }) => {
-  const layout = data.layout || {
-    left: ['profile', 'experiences'],
-    right: ['contact', 'skills', 'education']
-  };
+  const layout = data.layout || getDefaultLayout(data.template);
 
   const renderSection = (id: string) => {
     switch (id) {
@@ -3481,7 +3766,7 @@ const CreativeGradientTemplate = ({ data, onUpdate, onRemoveSection }: { data: C
             <section>
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-8 h-8 rounded-lg bg-pink-100 flex items-center justify-center text-pink-600">
-                  <Languages size={18} />
+                   <Languages size={18} />
                 </div>
                 <Editable text={data.sections?.languages || 'Langues'} className="text-xl font-bold text-slate-800" onSave={(val) => onUpdate({ sections: { ...data.sections!, languages: val } })} />
               </div>
@@ -3497,6 +3782,79 @@ const CreativeGradientTemplate = ({ data, onUpdate, onRemoveSection }: { data: C
                       const newList = [...data.languagesList];
                       newList[i].level = val;
                       onUpdate({ languagesList: newList });
+                    }} />
+                  </div>
+                ))}
+              </div>
+            </section>
+          </DraggableSection>
+        );
+      case 'itSkills':
+        return (
+          <DraggableSection key={id} id={id} onRemove={() => onRemoveSection(id)}>
+            <section>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600">
+                  <Cpu size={18} />
+                </div>
+                <Editable text={data.sections?.itSkills || 'Informatique'} className="text-xl font-bold text-slate-800" onSave={(val) => onUpdate({ sections: { ...data.sections!, itSkills: val } })} />
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {data.itSkills?.map((s, i) => (
+                  <div key={i} className="px-3 py-1 bg-white border border-slate-100 rounded-lg shadow-sm text-sm text-slate-700">
+                    <Editable text={s} onSave={(val) => {
+                      const newSkills = [...data.itSkills];
+                      newSkills[i] = val;
+                      onUpdate({ itSkills: newSkills });
+                    }} />
+                  </div>
+                ))}
+              </div>
+            </section>
+          </DraggableSection>
+        );
+      case 'qualities':
+        return (
+          <DraggableSection key={id} id={id} onRemove={() => onRemoveSection(id)}>
+            <section className="break-inside-avoid">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-600">
+                  <CheckCircle size={18} />
+                </div>
+                <Editable text={data.sections?.qualities || 'Qualités'} className="text-xl font-bold text-slate-800" onSave={(val) => onUpdate({ sections: { ...data.sections!, qualities: val } })} />
+              </div>
+              <div className="space-y-2">
+                {data.qualities?.map((q, i) => (
+                  <div key={i} className="flex items-center space-x-2">
+                    <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></div>
+                    <Editable text={q} className="text-sm text-slate-600" onSave={(val) => {
+                      const newQ = [...data.qualities];
+                      newQ[i] = val;
+                      onUpdate({ qualities: newQ });
+                    }} />
+                  </div>
+                ))}
+              </div>
+            </section>
+          </DraggableSection>
+        );
+      case 'interests':
+        return (
+          <DraggableSection key={id} id={id} onRemove={() => onRemoveSection(id)}>
+            <section className="break-inside-avoid">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center text-orange-600">
+                  <Heart size={18} />
+                </div>
+                <Editable text={data.sections?.interests || 'Centres d’intérêt'} className="text-xl font-bold text-slate-800" onSave={(val) => onUpdate({ sections: { ...data.sections!, interests: val } })} />
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {data.interests?.map((item, i) => (
+                  <div key={i} className="px-3 py-1 bg-white border border-slate-100 rounded-lg shadow-sm text-sm text-slate-700">
+                    <Editable text={item} onSave={(val) => {
+                      const newI = [...data.interests];
+                      newI[i] = val;
+                      onUpdate({ interests: newI });
                     }} />
                   </div>
                 ))}
@@ -3636,10 +3994,7 @@ const CreativeGradientTemplate = ({ data, onUpdate, onRemoveSection }: { data: C
 };
 
 const OrangeTemplate = ({ data, onUpdate, onRemoveSection }: { data: CVData, onUpdate: (d: Partial<CVData>) => void, onRemoveSection: (id: string) => void }) => {
-  const layout = data.layout || {
-    left: ['profile', 'contact', 'education'],
-    right: ['experiences', 'skills']
-  };
+  const layout = data.layout || getDefaultLayout(data.template);
 
   const renderSection = (id: string) => {
     switch (id) {
@@ -3803,6 +4158,70 @@ const OrangeTemplate = ({ data, onUpdate, onRemoveSection }: { data: CVData, onU
                     <div className="w-32 h-2 bg-slate-100 rounded-full overflow-hidden">
                       <div className="h-full bg-[#f27d26]" style={{ width: '70%' }}></div>
                     </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </DraggableSection>
+        );
+      case 'itSkills':
+        return (
+          <DraggableSection key={id} id={id} onRemove={() => onRemoveSection(id)}>
+            <section className="mb-10">
+              <h2 className="text-2xl font-black text-slate-800 mb-4">
+                <Editable text={data.sections?.itSkills || 'Informatique'} onSave={(val) => onUpdate({ sections: { ...data.sections!, itSkills: val } })} />
+              </h2>
+              <div className="flex flex-wrap gap-2">
+                {data.itSkills?.map((s, i) => (
+                  <div key={i} className="px-3 py-1 bg-slate-50 border border-slate-200 rounded text-sm text-slate-700">
+                    <Editable text={s} onSave={(val) => {
+                      const newSkills = [...data.itSkills];
+                      newSkills[i] = val;
+                      onUpdate({ itSkills: newSkills });
+                    }} />
+                  </div>
+                ))}
+              </div>
+            </section>
+          </DraggableSection>
+        );
+      case 'qualities':
+        return (
+          <DraggableSection key={id} id={id} onRemove={() => onRemoveSection(id)}>
+            <section className="mb-10 break-inside-avoid">
+              <h2 className="text-2xl font-black text-slate-800 mb-4">
+                <Editable text={data.sections?.qualities || 'Qualités'} onSave={(val) => onUpdate({ sections: { ...data.sections!, qualities: val } })} />
+              </h2>
+              <div className="space-y-2">
+                {data.qualities?.map((q, i) => (
+                  <div key={i} className="flex items-center space-x-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#f27d26]"></span>
+                    <Editable text={q} className="text-sm text-slate-600" onSave={(val) => {
+                      const newQ = [...data.qualities];
+                      newQ[i] = val;
+                      onUpdate({ qualities: newQ });
+                    }} />
+                  </div>
+                ))}
+              </div>
+            </section>
+          </DraggableSection>
+        );
+      case 'interests':
+        return (
+          <DraggableSection key={id} id={id} onRemove={() => onRemoveSection(id)}>
+            <section className="mb-10 break-inside-avoid">
+              <h2 className="text-2xl font-black text-slate-800 mb-4">
+                <Editable text={data.sections?.interests || 'Centres d’intérêt'} onSave={(val) => onUpdate({ sections: { ...data.sections!, interests: val } })} />
+              </h2>
+              <div className="flex flex-wrap gap-2">
+                {data.interests?.map((item, i) => (
+                  <div key={i} className="px-3 py-1 bg-slate-50 border border-slate-200 rounded text-sm text-slate-700">
+                    <Editable text={item} onSave={(val) => {
+                      const newI = [...data.interests];
+                      newI[i] = val;
+                      onUpdate({ interests: newI });
+                    }} />
                   </div>
                 ))}
               </div>

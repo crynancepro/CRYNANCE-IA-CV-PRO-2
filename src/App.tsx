@@ -23,6 +23,8 @@ import AdminReviews from './pages/AdminReviews';
 import AdminEmails from './pages/AdminEmails';
 import Help from './pages/Help';
 import Profile from './pages/Profile';
+import Optimization from './pages/Optimization';
+import ATSAnalysis from './pages/ATSAnalysis';
 
 export default function App() {
   return (
@@ -72,6 +74,16 @@ export default function App() {
               <Route path="/cover-letter-preview" element={
                 <ProtectedRoute>
                   <CoverLetterPreview />
+                </ProtectedRoute>
+              } />
+              <Route path="/optimization" element={
+                <ProtectedRoute>
+                  <Optimization />
+                </ProtectedRoute>
+              } />
+              <Route path="/ats-analysis" element={
+                <ProtectedRoute>
+                  <ATSAnalysis />
                 </ProtectedRoute>
               } />
 

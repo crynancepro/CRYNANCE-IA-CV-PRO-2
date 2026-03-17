@@ -95,7 +95,7 @@ export default function AdminEmails() {
                   <td className="px-6 py-4">
                     <div className="flex items-center space-x-2 text-xs text-slate-500">
                       <Clock size={12} />
-                      <span>{new Date(email.sentAt).toLocaleString()}</span>
+                      <span>{email.sentAt ? new Date(email.sentAt).toLocaleString() : 'Date inconnue'}</span>
                     </div>
                   </td>
                   <td className="px-6 py-4">

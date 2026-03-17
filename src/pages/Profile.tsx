@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { User, Mail, Phone, MapPin, Camera, Save, Loader2, AlertCircle, CheckCircle2, Shield } from 'lucide-react';
+import { User, Mail, Phone, MapPin, Camera, Save, Loader2, AlertCircle, CheckCircle2, Shield, Send } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { db } from '../firebase';
+import { db, auth as firebaseAuth } from '../firebase';
+import { sendEmailVerification } from 'firebase/auth';
 import { doc, updateDoc } from 'firebase/firestore';
 
 export default function Profile() {
   const { user, refreshProfile } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [formData, setFormData] = useState({
@@ -34,6 +36,26 @@ export default function Profile() {
       setError('Erreur lors de la mise à jour du profil');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleSendVerification = async () => {
+    if (!firebaseAuth.currentUser) return;
+    setIsVerifying(true);
+    setError('');
+    setSuccess('');
+    try {
+      await sendEmailVerification(firebaseAuth.currentUser);
+      setSuccess('Email de vérification envoyé ! Veuillez consulter votre boîte de réception.');
+    } catch (err: any) {
+      console.error(err);
+      if (err.code === 'auth/too-many-requests') {
+        setError('Trop de tentatives. Veuillez réessayer plus tard.');
+      } else {
+        setError('Erreur lors de l\'envoi de l\'email de vérification.');
+      }
+    } finally {
+      setIsVerifying(false);
     }
   };
 
@@ -133,14 +155,46 @@ export default function Profile() {
 
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-2">Email (Non modifiable)</label>
-                <div className="relative">
-                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                  <input
-                    type="email"
-                    value={user?.email}
-                    disabled
-                    className="w-full pl-12 pr-4 py-3 bg-slate-100 border border-slate-200 rounded-2xl text-slate-500 cursor-not-allowed"
-                  />
+                <div className="flex flex-col space-y-2">
+                  <div className="relative">
+                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                    <input
+                      type="email"
+                      value={user?.email || ''}
+                      disabled
+                      className="w-full pl-12 pr-4 py-3 bg-slate-100 border border-slate-200 rounded-2xl text-slate-500 cursor-not-allowed"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between px-2">
+                    <div className="flex items-center space-x-2">
+                      {user?.emailVerified ? (
+                        <div className="flex items-center text-emerald-600 text-xs font-bold">
+                          <CheckCircle2 size={14} className="mr-1" />
+                          Email vérifié
+                        </div>
+                      ) : (
+                        <div className="flex items-center text-amber-600 text-xs font-bold">
+                          <AlertCircle size={14} className="mr-1" />
+                          Email non vérifié
+                        </div>
+                      )}
+                    </div>
+                    {!user?.emailVerified && (
+                      <button
+                        type="button"
+                        onClick={handleSendVerification}
+                        disabled={isVerifying}
+                        className="text-primary text-xs font-black uppercase tracking-widest hover:underline flex items-center disabled:opacity-50"
+                      >
+                        {isVerifying ? (
+                          <Loader2 size={12} className="animate-spin mr-1" />
+                        ) : (
+                          <Send size={12} className="mr-1" />
+                        )}
+                        Renvoyer le lien
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
 
